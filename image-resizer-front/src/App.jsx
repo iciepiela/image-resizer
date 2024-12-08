@@ -6,10 +6,7 @@ import { Toaster } from 'react-hot-toast'
 function App() {
   return (
     <BrowserRouter>
-      <Toaster position='bottom-right' toastOptions={{ duration: 2000 }} />
-      <Routes>
-        <Route path="/" element={<ImageGrid />} />
-      </Routes>
+      <ImageGrid />
     </BrowserRouter>
   );
 }
