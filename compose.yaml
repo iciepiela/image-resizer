@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./image-resizer
+    container_name: image-resizer-backend
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_R2DBC_URL: r2dbc:postgresql://db:5432/image_resizer
+      SPRING_R2DBC_USERNAME: app
+      SPRING_R2DBC_PASSWORD: abcd
+    # if database doesn't work commend this
+    depends_on:
+      - db
+    ##
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: ./image-resizer-front
+    container_name: image-resizer-frontend
+    ports:
+      - "3000:80"
+    networks:
+      - app-network
+  # and this
+  db:
+    image: postgres:15
+    container_name: postgres-db
+    restart: always
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: abcd
+      POSTGRES_DB: image_resizer
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./db-init.sql:/docker-entrypoint-initdb.d/db-init.sql
+    networks:
+      - app-network
+    ##
+volumes:
+  postgres-data:
+
+networks:
+  app-network:

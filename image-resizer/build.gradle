@@ -13,6 +13,11 @@ java {
     }
 }
 
+springBoot {
+    mainClass = 'pl.edu.agh.to.imageresizer.ImageResizerApplication'
+}
+
+
 repositories {
     mavenCentral()
 }
