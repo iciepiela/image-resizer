@@ -13,5 +13,6 @@ import org.springframework.data.relational.core.mapping.Table;
 public class OriginalImage {
     @Id
     private Long imageId;
-    private String path;
+    private String name;
+    private String base64;
 }

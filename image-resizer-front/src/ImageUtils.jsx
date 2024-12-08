@@ -8,6 +8,7 @@ export const extractZip = async (file) => {
         const zipContent = await zip.loadAsync(file);
         const promises = [];
         zipContent.forEach((relativePath, zipEntry) => {
+            console.log("doo");
             if (isImage(zipEntry.name)) {
                 const promise = zipEntry.async('base64').then((base64Data) => {
                     loadedImgs.push({
