@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { fromEvent, takeWhile } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { extractZip } from '../ImageUtils';
+import './ImageGrid.css';
 
 const ImageGrid = () => {
     const [images, setImages] = useState([]);
@@ -117,24 +118,32 @@ const uploadImagesToBackend = async (images) => {
     
 
     return (
-        <div>
-            <button onClick={loadPhotos}>Load</button>
-            <input type="file" onChange={handleFileChange} />
-            {images.map((image) => (
-                <div key={image.key} style={{ margin: '10px', display: 'inline-block' }}>
-                    {image.loaded ? (
-                        <img
-                            src={image.base64}
-                            alt={`Image ${image.name}`}
-                            style={{ width: '200px', height: 'auto', borderRadius: '8px' }}
-                        />
-                    ) : (
-                        <div style={{ width: '200px', height: '200px', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#f0f0f0', borderRadius: '8px' }}>
-                            <span>Loading image...</span>
-                        </div>
-                    )}
+        <div className='main_container'>
+            <div className='top-bar'>
+                <button onClick={loadPhotos} className='top-bar-button'>Load</button>
+                <input type="file" onChange={handleFileChange} className='top-bar-input'/>
+            </div>
+            <div className='image-grid'>
+                {images.map((image) => (
+                    <div key={image.key} className='image-grid-item'
+                    // style={{ margin: '10px', display: 'inline-block' }}
+                    >
+                        {image.loaded ? (
+                            <img
+                                src={image.base64}
+                                alt={`Image ${image.name}`}
+                                className='image-grid-item-image'
+                                // style={{ width: '200px', height: 'auto', borderRadius: '8px' }}
+                            />
+                        ) : (
+                            <div className='image-grid-placeholder'>
+                                {/* style={{ width: '200px', height: '200px', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#f0f0f0', borderRadius: '8px' }} */}
+                                <span>Loading image...</span>
+                            </div>
+                        )}
                 </div>
             ))}
+            </div>
         </div>
     );
 };

@@ -1,0 +1,95 @@
+body{
+    background-color:#333
+}
+
+.top-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    background-color: #000;
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+}
+
+.top-bar-button {
+    background-color: #007BFF;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s;
+}
+
+.top-bar-button:hover {
+    background-color: #0056b3;
+}
+
+.top-bar-input {
+    color: white;
+    cursor: pointer;
+}
+
+.top-bar-input[type="file"]::-webkit-file-upload-button {
+    content: "Upload your zipped images";
+    background-color: #007BFF;
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.top-bar-input[type="file"]::-webkit-file-upload-button:hover {
+    background-color: #0056b3;
+}
+
+.image-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3vh;
+    justify-content: center;
+    padding: 10vh 0vh;
+}
+
+.image-grid-item {
+    flex: 0 1 calc(33.33% - 8vw);
+    box-sizing: border-box;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.image-grid-item-image {
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+}
+
+.image-grid-placeholder {
+    width: 100%;
+    padding-top: 100%;
+    background: #f0f0f0;
+    border-radius: 8px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
+
+.image-grid-placeholder span {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #666;
+    font-size: 14px;
+}
