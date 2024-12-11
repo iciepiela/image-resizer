@@ -19,7 +19,7 @@ docker-compose build
 
 # Start the services
 echo "Starting services..."
-docker-compose up -d
+docker-compose up -w
 
 # Verify if the services are running
 echo "Checking running containers..."
