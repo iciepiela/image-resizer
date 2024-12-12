@@ -1,16 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { fromEvent, takeWhile } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { extractZip } from '../ImageUtils';
 
 const ImageGrid = () => {
     const [images, setImages] = useState([]);
-    const COMPLETE_REQUEST="COMPLETE_REQUEST"
+    const [sessionKey, setSessionKey] = useState();
 
-    const loadPhotos = () => {
+    const COMPLETE_REQUEST = "COMPLETE_REQUEST"
+
+    useEffect(() => {
+        if (sessionKey) {
+            loadPhotos();
+        }
+    }, [sessionKey]);
+
+    const loadPhotos = (all) => {
         console.log("Loading photos...")
         // setImages([])
-        const eventSource = new EventSource('http://localhost:8080/images/original');
+        const url = all ? `http://localhost:8080/images/resized/all` : `http://localhost:8080/images/resized?sessionKey=${sessionKey}`
+
+        const eventSource = new EventSource(url);
 
         const imageStream$ = fromEvent(eventSource, 'message').pipe(
             map((event) => {
@@ -25,20 +35,29 @@ const ImageGrid = () => {
                 if (imageData.name === COMPLETE_REQUEST && imageData.base64 === COMPLETE_REQUEST) {
                     console.log("ended");
                     eventSource.close();
-                } else  {
-                    const newImage = { 
-                        base64: `data:image/jpg;base64,${imageData.base64}`, 
+                } else {
+                    const newImage = {
+                        base64: `data:image/jpg;base64,${imageData.base64}`,
                         name: imageData.name,
                         key: imageData.key,
                         loaded: true
                     };
                     console.log(newImage);
                     // setImages((prevImages) => [...prevImages, newImage]);
-                    setImages((prevImages) =>
-                        prevImages.some((image) => image.key === newImage.key)
-                          ? prevImages.map((image) => (image.key === newImage.key ? newImage : image))
-                          : [...prevImages, newImage]
-                      );
+                    if (all) {
+                        setImages((prevImages) =>
+                            prevImages.some((image) => image.key === newImage.key)
+                                ? prevImages.map((image) => (image))
+                                : [...prevImages, newImage]
+                        )
+                    } else {
+                        setImages((prevImages) =>
+                            prevImages.some((image) => image.key === newImage.key)
+                                ? prevImages.map((image) => (image.key === newImage.key ? newImage : image))
+                                : [...prevImages, newImage]
+                        );
+                    }
+
                 }
 
             },
@@ -56,69 +75,71 @@ const ImageGrid = () => {
     };
 
     const uploadPhotos = async (imageList) => {
-    console.log("Starting photo upload...");
-    
+        console.log("Starting photo upload...");
 
-    const preparedImages = imageList.map(image => ({
-        key: image.key,
-        name: image.name,
-        base64: image.base64
-    }));
 
-    try {
-        const response = await uploadImagesToBackend(preparedImages);
+        const preparedImages = imageList.map(image => ({
+            key: image.key,
+            name: image.name,
+            base64: image.base64
+        }));
 
-        if (response) {
-            console.log("All photos uploaded successfully.");
-        } else {
-            console.log("Failed to upload photos.");
+        try {
+            const response = await uploadImagesToBackend(preparedImages);
+            console.log(response);
+
+            if (response) {
+                console.log("All photos uploaded successfully.");
+                setSessionKey(response);
+            } else {
+                console.log("Failed to upload photos.");
+            }
+
+
+        } catch (error) {
+            console.error("Error uploading photos:", error);
         }
+    };
 
-        loadPhotos();
-    } catch (error) {
-        console.error("Error uploading photos:", error);
-    }
-};
+    const uploadImagesToBackend = async (images) => {
+        try {
+            const response = await fetch('http://localhost:8080/images/upload', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(images)
+            });
 
-const uploadImagesToBackend = async (images) => {
-    try {
-        const response = await fetch('http://localhost:8080/images/upload', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(images)
-        });
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
+            const responseBody = await response.text();
+            console.log("SessionKey retrieved: ", responseBody);
+            return responseBody;
+        } catch (error) {
+            console.error('Error during fetch:', error);
+            throw error;
         }
-
-        const responseBody = await response.json();
-        console.log("Photos uploaded successfully: ", responseBody);
-        return responseBody;
-    } catch (error) {
-        console.error('Error during fetch:', error);
-        throw error;
-    }
-};
+    };
 
     const handleFileChange = (event) => {
         const file = event.target.files[0];
         if (file && file.name.endsWith('.zip')) {
             extractZip(file)
-            .then(loadedImgs=>{
-                setImages(loadedImgs);
-                uploadPhotos(loadedImgs);
+                .then(loadedImgs => {
+                    setImages((prevImages) => [...prevImages, ...loadedImgs]);
+                    uploadPhotos(loadedImgs);
 
-            })
+                })
         } else {
             alert('Please upload a valid ZIP file.');
         }
     };
-    
+
 
     return (
         <div>
-            <button onClick={loadPhotos}>Load</button>
+            <button onClick={() => loadPhotos(true)}>Load</button>
             <input type="file" onChange={handleFileChange} />
             {images.map((image) => (
                 <div key={image.key} style={{ margin: '10px', display: 'inline-block' }}>
