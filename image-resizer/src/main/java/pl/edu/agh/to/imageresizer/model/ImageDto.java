@@ -8,6 +8,7 @@ import lombok.ToString;
 @AllArgsConstructor
 @ToString
 public class ImageDto {
+    private String key;
     private String name;
     private String base64;
 }
