@@ -1,5 +1,6 @@
 package pl.edu.agh.to.imageresizer.controllers;
 
+import jakarta.servlet.http.HttpSession;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -12,7 +13,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/images")
@@ -25,24 +25,22 @@ public class ImageController {
     @GetMapping(value = "/resized", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ResponseEntity<ImageDto>> getImagesBySessionKey(@RequestParam String sessionKey) {
         return imageService.getResizedImagesForSessionKey(sessionKey)
-                .concatWith(Flux.just(new ImageDto(COMPLETE_REQUEST,COMPLETE_REQUEST, COMPLETE_REQUEST)))
-                .doOnNext(elem -> log.info("Image emitted"))
+                .concatWith(Flux.just(new ImageDto(COMPLETE_REQUEST, COMPLETE_REQUEST, COMPLETE_REQUEST)))
                 .map(element -> ResponseEntity.ok().body(element));
     }
 
     @GetMapping(value = "/resized/all", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ResponseEntity<ImageDto>> getAllImages() {
         return imageService.getAllResizedImages()
-                .concatWith(Flux.just(new ImageDto(COMPLETE_REQUEST,COMPLETE_REQUEST, COMPLETE_REQUEST)))
-                .doOnNext(elem -> log.info("Image emitted"))
+                .concatWith(Flux.just(new ImageDto(COMPLETE_REQUEST, COMPLETE_REQUEST, COMPLETE_REQUEST)))
                 .map(element -> ResponseEntity.ok().body(element));
     }
 
     @PostMapping(value = "/upload", produces = MediaType.APPLICATION_JSON_VALUE)
-    public Mono<ResponseEntity<String>> uploadImages(@RequestBody List<ImageDto> images) {
-        String sessionKey= UUID.randomUUID().toString();
+    public Mono<ResponseEntity<String>> uploadImages(@RequestBody List<ImageDto> images, HttpSession httpSession) {
+        String sessionKey = httpSession.getId();
         return Flux.fromIterable(images)
-                .flatMap(image->imageService.resizeAndSaveOriginalImage(image, sessionKey))
+                .flatMap(image -> imageService.resizeAndSaveOriginalImage(image, sessionKey))
                 .then(Mono.just(ResponseEntity.ok(sessionKey)))
                 .onErrorResume(e -> {
                     e.printStackTrace();

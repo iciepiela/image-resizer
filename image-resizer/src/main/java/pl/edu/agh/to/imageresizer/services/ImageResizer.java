@@ -9,30 +9,45 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 
 @Service
 public class ImageResizer {
+    private static final int WIDTH = 200;
+    private static final int HEIGHT = 200;
+
     public Mono<ResizedImage> resize(ImageDto imageDto, String sessionKey) {
-        Integer width = 200;
-        Integer height = 200;
         return Mono.fromCallable(() -> {
-            String base64Data = imageDto.getBase64();
-            String base64String = base64Data.split(",")[1];
-            byte[] imageBytes = java.util.Base64.getDecoder().decode(base64String);
-            ByteArrayInputStream inputStream = new ByteArrayInputStream(imageBytes);
-            BufferedImage originalImage = ImageIO.read(inputStream);
+            BufferedImage originalImage = getOriginalImage(imageDto.getBase64());
+            String resizedBase64 = getResizedBase64(originalImage, imageDto.getBase64());
 
-            BufferedImage resizedImage = new BufferedImage(width, height, originalImage.getType());
-            resizedImage.getGraphics().drawImage(originalImage, 0, 0, 200, 200, null);
-
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            ImageIO.write(resizedImage, "png", outputStream);
-            byte[] resizedImageBytes = outputStream.toByteArray();
-            String resizedBase64 = java.util.Base64.getEncoder().encodeToString(resizedImageBytes);
-
-            return new ResizedImage(imageDto.getKey(), imageDto.getName(), resizedBase64, sessionKey, width, height);
-
+            return new ResizedImage(imageDto.getImageKey(), imageDto.getName(), resizedBase64, sessionKey, WIDTH, HEIGHT);
         });
+    }
+
+    private BufferedImage getOriginalImage( String base64Data) throws IOException {
+        byte[] imageBytes = java.util.Base64.getDecoder().decode(truncateBase64Prefix(base64Data));
+        ByteArrayInputStream inputStream = new ByteArrayInputStream(imageBytes);
+        return ImageIO.read(inputStream);
+    }
+
+    private String getResizedBase64(BufferedImage originalImage, String base64Data) throws IOException {
+        BufferedImage resizedImage = new BufferedImage(WIDTH, HEIGHT, originalImage.getType());
+        resizedImage.getGraphics().drawImage(originalImage, 0, 0, 200, 200, null);
+
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ImageIO.write(resizedImage, getFormatName(base64Data), outputStream);
+        byte[] resizedImageBytes = outputStream.toByteArray();
+        return java.util.Base64.getEncoder().encodeToString(resizedImageBytes);
+
+    }
+
+    private String getFormatName(String base64Data) {
+        return base64Data.split(";")[0].split("/")[1];
+    }
+
+    private String truncateBase64Prefix(String base64Data) {
+        return base64Data.split(",")[1];
     }
 
 }

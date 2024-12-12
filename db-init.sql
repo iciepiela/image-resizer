@@ -3,7 +3,9 @@ CREATE TABLE original_images
 (
     image_id SERIAL PRIMARY KEY,
     name    VARCHAR(255),
-    base64  TEXT
+    base64  TEXT,
+    width INTEGER,
+    height INTEGER
 );
 
 -- Create table for ResizedImage

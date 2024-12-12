@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { fromEvent, takeWhile } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { extractZip } from '../ImageUtils';
+import '../ImageGrid.css'
 
 const ImageGrid = () => {
     const [images, setImages] = useState([]);
@@ -10,14 +11,23 @@ const ImageGrid = () => {
     const COMPLETE_REQUEST = "COMPLETE_REQUEST"
 
     useEffect(() => {
+        const savedImages = localStorage.getItem('images');
+        if (savedImages) {
+            setImages(JSON.parse(savedImages));
+        }
         if (sessionKey) {
             loadPhotos();
         }
     }, [sessionKey]);
 
+    useEffect(() => {
+        if (images.length > 0) {
+            localStorage.setItem('images', JSON.stringify(images));
+        }
+    }, [images]);
+
     const loadPhotos = (all) => {
         console.log("Loading photos...")
-        // setImages([])
         const url = all ? `http://localhost:8080/images/resized/all` : `http://localhost:8080/images/resized?sessionKey=${sessionKey}`
 
         const eventSource = new EventSource(url);
@@ -39,21 +49,20 @@ const ImageGrid = () => {
                     const newImage = {
                         base64: `data:image/jpg;base64,${imageData.base64}`,
                         name: imageData.name,
-                        key: imageData.key,
+                        imageKey: imageData.imageKey,
                         loaded: true
                     };
                     console.log(newImage);
-                    // setImages((prevImages) => [...prevImages, newImage]);
                     if (all) {
                         setImages((prevImages) =>
-                            prevImages.some((image) => image.key === newImage.key)
+                            prevImages.some((image) => image.imageKey === newImage.imageKey)
                                 ? prevImages.map((image) => (image))
                                 : [...prevImages, newImage]
                         )
                     } else {
                         setImages((prevImages) =>
-                            prevImages.some((image) => image.key === newImage.key)
-                                ? prevImages.map((image) => (image.key === newImage.key ? newImage : image))
+                            prevImages.some((image) => image.imageKey === newImage.imageKey)
+                                ? prevImages.map((image) => (image.imageKey === newImage.imageKey ? newImage : image))
                                 : [...prevImages, newImage]
                         );
                     }
@@ -79,7 +88,7 @@ const ImageGrid = () => {
 
 
         const preparedImages = imageList.map(image => ({
-            key: image.key,
+            imageKey: image.imageKey,
             name: image.name,
             base64: image.base64
         }));
@@ -141,21 +150,24 @@ const ImageGrid = () => {
         <div>
             <button onClick={() => loadPhotos(true)}>Load</button>
             <input type="file" onChange={handleFileChange} />
-            {images.map((image) => (
-                <div key={image.key} style={{ margin: '10px', display: 'inline-block' }}>
-                    {image.loaded ? (
-                        <img
-                            src={image.base64}
-                            alt={`Image ${image.name}`}
-                            style={{ width: '200px', height: 'auto', borderRadius: '8px' }}
-                        />
-                    ) : (
-                        <div style={{ width: '200px', height: '200px', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#f0f0f0', borderRadius: '8px' }}>
-                            <span>Loading image...</span>
-                        </div>
-                    )}
-                </div>
-            ))}
+            <div>
+                <h1>Photos</h1>
+                {images.map((image) => (
+                    <div key={image.imageKey} style={{ margin: '10px', display: 'inline-block' }}>
+                        {image.loaded ? (
+                            <img
+                                src={image.base64}
+                                alt={`Image ${image.name}`}
+                                style={{ width: '200px', height: 'auto', borderRadius: '8px' }}
+                            />
+                        ) : (
+                            <div style={{ width: '200px', height: '200px', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#f0f0f0', borderRadius: '8px' }}>
+                                <div class="loader"></div>
+                            </div>
+                        )}
+                    </div>
+                ))}
+            </div>
         </div>
     );
 };
