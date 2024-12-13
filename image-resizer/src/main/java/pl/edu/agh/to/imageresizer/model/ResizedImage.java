@@ -1,0 +1,35 @@
+package pl.edu.agh.to.imageresizer.model;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
+
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Table(name = "resized_images")
+public class ResizedImage {
+    @Id
+    private Long imageId;
+    @Column("original_image")
+    private Long originalImageId;
+    private String imageKey;
+    private String name;
+    private String base64;
+    private String sessionKey;
+    private Integer width;
+    private Integer height;
+
+    public ResizedImage(String imageKey, String name, String base64, String sessionKey, Integer width, Integer height) {
+        this.imageKey = imageKey;
+        this.name = name;
+        this.base64 = base64;
+        this.sessionKey = sessionKey;
+        this.width = width;
+        this.height = height;
+    }
+}
