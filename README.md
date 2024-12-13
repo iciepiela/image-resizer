@@ -76,6 +76,14 @@ na EventSource
 - frontend otrzymuje w strumieniu reaktywnym obrazki i wstawia po kolei każdy z nich na pierwsze wolne miejsce w gridzie
 - Po otrzymaniu obrazka końcowego "COMPLETE_REQUEST" wyłącza EventSource
 
+Powiększanie obrazka zachodzi w następujący sposób:
+ - Użytkownik klika na wybraną miniature
+ - Frontend wysyła do Backendu zapytanie `GET /original` o oryginalny obraz na podstawie klucza swojego ImageDto
+ - Backend znajduje OriginalImage w bazie i odsyła `Mono` do Frontendu
+ - Żadne dodatkowe mechanizmy nie są potrzebne gdyż to zawsze tylko jeden obrazek
+ - Powiększony obrazek zostaje wyświetony na ekranie
+ - Można go zamknać przyciskiem X
+
 ### Dodatkowe informacje
 - Obrazki załadowane w danej sesji trzymane są w localStorage, by użytkownik po odświeżeniu strony nadal widział obrazki, 
 które zuploadował/załadował z bazy.
