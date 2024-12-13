@@ -25,7 +25,7 @@ public class ImageResizer {
         });
     }
 
-    private BufferedImage getOriginalImage( String base64Data) throws IOException {
+    private BufferedImage getOriginalImage(String base64Data) throws IOException {
         byte[] imageBytes = java.util.Base64.getDecoder().decode(truncateBase64Prefix(base64Data));
         ByteArrayInputStream inputStream = new ByteArrayInputStream(imageBytes);
         return ImageIO.read(inputStream);

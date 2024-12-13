@@ -35,9 +35,9 @@ public class ImageService {
 
     public Mono<ImageDto> getOriginalImage(String key) {
         return resizedImageRepository.findResizedImageByImageKey(key)
-        .flatMap(image -> originalImageRepository.findById(image.getOriginalImageId()))
-        .map(el -> new ImageDto(null, el.getName(), el.getBase64(), el.getWidth(), el.getHeight()))
-        .delayElement(Duration.ofSeconds(1));
+                .flatMap(image -> originalImageRepository.findById(image.getOriginalImageId()))
+                .map(el -> new ImageDto(null, el.getName(), el.getBase64(), el.getWidth(), el.getHeight()))
+                .delayElement(Duration.ofSeconds(1));
     }
 
     public Mono<Boolean> resizeAndSaveOriginalImage(ImageDto imageDto, String sessionKey) {
