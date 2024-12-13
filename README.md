@@ -29,8 +29,8 @@ Na frontendzie przewidujemy oprócz klasy `App.jsx` tylko plik `ImageGrid.jsx` z
 - [x] Placeholdery na każdy obrazek
 - [x] Refactor backendu
 - [x] Implementacja klasy ImageResizera
-- [ ] Implementacja powiększania obrazka
-- [ ] Ładny frontend
+- [x] Implementacja powiększania obrazka
+- [xd] Ładny frontend
 
 ## [13.12.2024] Milestone 1
 ### Schemat bazy danych

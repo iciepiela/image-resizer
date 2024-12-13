@@ -215,7 +215,7 @@ const ImageGrid = () => {
         </Button>
       </div>
       <div className="image-grid">
-        <h1>Photos</h1>
+        <h1>Photos - click to make it bigger</h1>
         {images.map((image) => (
           <div
             key={image.imageKey}
