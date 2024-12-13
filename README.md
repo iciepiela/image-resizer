@@ -78,7 +78,7 @@ na EventSource
 
 Powiększanie obrazka zachodzi w następujący sposób:
  - Użytkownik klika na wybraną miniature
- - Frontend wysyła do Backendu zapytanie `GET /original` o oryginalny obraz na podstawie klucza swojego ImageDto
+ - Frontend wysyła do Backendu zapytanie `GET /original` o oryginalny obraz na podstawie klucza ImageDto `imageKey`
  - Backend znajduje OriginalImage w bazie i odsyła `Mono` do Frontendu
  - Żadne dodatkowe mechanizmy nie są potrzebne gdyż to zawsze tylko jeden obrazek
  - Powiększony obrazek zostaje wyświetony na ekranie
