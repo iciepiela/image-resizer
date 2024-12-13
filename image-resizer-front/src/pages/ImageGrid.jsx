@@ -53,6 +53,8 @@ const ImageGrid = () => {
                         base64: `data:image/jpg;base64,${imageData.base64}`,
                         name: imageData.name,
                         imageKey: imageData.imageKey,
+                        width: imageData.width,
+                        height: imageData.height,
                         loaded: true
                     };
                     console.log(newImage);
@@ -85,6 +87,8 @@ const ImageGrid = () => {
             subscription.unsubscribe();
         };
     };
+
+
 
     const uploadPhotos = async (imageList) => {
         console.log("Starting photo upload...");
@@ -148,20 +152,41 @@ const ImageGrid = () => {
         }
     };
 
-    const handleMouseEnter = (image, event) => {
-        try {
-            // Upload original image from backend
-            // placeholder
-            setHoveredImage(image.base64);
-            const rect = event.currentTarget.getBoundingClientRect();
-            setHoveredImageStyle({
-                top: `${rect.bottom + window.scrollY}px`,
-                left: `${(rect.left) + window.scrollX}px`,
-            });
-        } catch (error) {
-            console.error("Error fetching hover image:", error);
-        }
+    // const fetchOriginalImageFromResizedId = async (resizedImageId) => {
+    //     try {
+    //         const response = await fetch(`http://localhost:8080/images/original/from-resized/${resizedImageId}`);
+    //         if (!response.ok) {
+    //             throw new Error(`Failed to fetch original image: ${response.status}`);
+    //         }
+    //         const data = await response.json();
+    //         return data.base64;
+    //     } catch (error) {
+    //         console.error('Error fetching original image:', error);
+    //         return null;
+    //     }
+    // };
+    
+    
+
+    const handleMouseEnter = async (image, event) => {
+        // try {
+        //     const originalBase64 = await fetchOriginalImageFromResizedId(image.imageId); // Fetch original using resized image ID
+        //     if (originalBase64) {
+        //         setHoveredImage(`data:image/jpg;base64,${originalBase64}`);
+        //     } else {
+        //         console.warn('Failed to load original image');
+        //     }
+        //     const rect = event.currentTarget.getBoundingClientRect();
+        //     setHoveredImageStyle({
+        //         top: `${rect.bottom + window.scrollY}px`,
+        //         left: `${rect.left + window.scrollX}px`,
+        //     });
+        // } catch (error) {
+        //     console.error('Error fetching hover image:', error);
+        // }
     };
+    
+    
 
     const closeHoverImage = () => {
         setHoveredImage(null);
@@ -194,16 +219,16 @@ const ImageGrid = () => {
                         key={image.key} 
                         className='image-grid-item'
                         onClick={(e) => handleMouseEnter(image, e)}
-                        // style={{
-                        //     width: `${image.width}px`,
-                        //     height: `${image.height}px`,
-                        // }}
                     >
                         {image.loaded ? (
                             <img
                                 src={image.base64}
                                 alt={`Image ${image.name}`}
                                 className='image-grid-item-image'
+                                style={{
+                                    width: `${image.width}px`,
+                                    height: `${image.height}px`,
+                                }}
                             />
                         ) : (
                             <div className='image-grid-placeholder'>
