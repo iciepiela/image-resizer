@@ -22,23 +22,22 @@ public class ImageService {
 
     public Flux<ImageDto> getAllResizedImages() {
         return resizedImageRepository.findAll()
-                .map(el -> new ImageDto(el.getImageKey(), el.getName(), el.getBase64()))
+                .map(el -> new ImageDto(el.getImageKey(), el.getName(), el.getBase64(), el.getWidth(), el.getHeight()))
                 .delayElements(Duration.ofSeconds(1));
     }
 
     public Flux<ImageDto> getResizedImagesForSessionKey(String sessionKey) {
         return Flux.just(sessionKey)
                 .flatMap(resizedImageRepository::findResizedImagesBySessionKey)
-                .map(el -> new ImageDto(el.getImageKey(), el.getName(), el.getBase64()))
+                .map(el -> new ImageDto(el.getImageKey(), el.getName(), el.getBase64(), el.getWidth(), el.getHeight()))
                 .delayElements(Duration.ofSeconds(1));
     }
 
-    public Flux<ImageDto> getOriginalImage(String key) {
-        return Flux.just(key)
-                .flatMap(resizedImageRepository::findResizedImageByImageKey)
-                .flatMap(image -> originalImageRepository.findById(image.getOriginalImageId()))
-                .map(el -> new ImageDto(null, el.getName(), el.getBase64()))
-                .delayElements(Duration.ofSeconds(1));
+    public Mono<ImageDto> getOriginalImage(String key) {
+        return resizedImageRepository.findResizedImageByImageKey(key)
+        .flatMap(image -> originalImageRepository.findById(image.getOriginalImageId()))
+        .map(el -> new ImageDto(null, el.getName(), el.getBase64(), el.getWidth(), el.getHeight()))
+        .delayElement(Duration.ofSeconds(1));
     }
 
     public Mono<Boolean> resizeAndSaveOriginalImage(ImageDto imageDto, String sessionKey) {

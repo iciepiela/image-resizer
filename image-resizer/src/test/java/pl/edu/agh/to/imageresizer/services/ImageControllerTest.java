@@ -27,9 +27,9 @@ class ImageControllerTest {
     void testGetImagesBySessionKey() {
         // given
         String sessionKey = "test-session";
-        ImageDto image1 = new ImageDto("image1", "url1", "smallUrl1");
-        ImageDto image2 = new ImageDto("image2", "url2", "smallUrl2");
-        ImageDto completeRequest = new ImageDto("COMPLETE_REQUEST", "COMPLETE_REQUEST", "COMPLETE_REQUEST");
+        ImageDto image1 = new ImageDto("image1", "url1", "smallUrl1", 0, 0);
+        ImageDto image2 = new ImageDto("image2", "url2", "smallUrl2", 0, 0);
+        ImageDto completeRequest = new ImageDto("COMPLETE_REQUEST", "COMPLETE_REQUEST", "COMPLETE_REQUEST", 0, 0);
 
         Mockito.when(imageService.getResizedImagesForSessionKey(sessionKey))
                 .thenReturn(Flux.just(image1, image2));
@@ -45,9 +45,9 @@ class ImageControllerTest {
     @Test
     void testGetAllImages() {
         //given
-        ImageDto image1 = new ImageDto("image1", "url1", "smallUrl1");
-        ImageDto image2 = new ImageDto("image2", "url2", "smallUrl2");
-        ImageDto completeRequest = new ImageDto("COMPLETE_REQUEST", "COMPLETE_REQUEST", "COMPLETE_REQUEST");
+        ImageDto image1 = new ImageDto("image1", "url1", "smallUrl1", 0, 0);
+        ImageDto image2 = new ImageDto("image2", "url2", "smallUrl2", 0, 0);
+        ImageDto completeRequest = new ImageDto("COMPLETE_REQUEST", "COMPLETE_REQUEST", "COMPLETE_REQUEST", 0, 0);
 
         Mockito.when(imageService.getAllResizedImages()).thenReturn(Flux.just(image1, image2));
 
@@ -67,8 +67,8 @@ class ImageControllerTest {
         Mockito.when(mockSession.getId()).thenReturn(sessionKey);
 
         List<ImageDto> images = List.of(
-                new ImageDto("image1", "url1", "smallUrl1"),
-                new ImageDto("image2", "url2", "smallUrl2")
+                new ImageDto("image1", "url1", "smallUrl1", 0, 0),
+                new ImageDto("image2", "url2", "smallUrl2", 0, 0)
         );
 
         Mockito.when(imageService.resizeAndSaveOriginalImage(Mockito.any(ImageDto.class), Mockito.eq(sessionKey)))

@@ -22,8 +22,8 @@ public class ImageController {
     private final ImageService imageService;
     private final String COMPLETE_REQUEST = "COMPLETE_REQUEST";
 
-    @GetMapping(value = "/original", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<ResponseEntity<ImageDto>> getOriginalImage(@RequestParam String imageKey) {
+    @GetMapping(value = "/original", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Mono<ResponseEntity<ImageDto>> getOriginalImage(@RequestParam String imageKey) {
         return imageService.getOriginalImage(imageKey)
                 .map(element -> ResponseEntity.ok().body(element));
     }
@@ -31,14 +31,16 @@ public class ImageController {
     @GetMapping(value = "/resized", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ResponseEntity<ImageDto>> getImagesBySessionKey(@RequestParam String sessionKey) {
         return imageService.getResizedImagesForSessionKey(sessionKey)
-                .concatWith(Flux.just(new ImageDto(COMPLETE_REQUEST, COMPLETE_REQUEST, COMPLETE_REQUEST)))
+                .concatWith(Flux.just(new ImageDto(COMPLETE_REQUEST, COMPLETE_REQUEST, COMPLETE_REQUEST, 0, 0))
+                        .delayElements(java.time.Duration.ofSeconds(1)))
                 .map(element -> ResponseEntity.ok().body(element));
     }
 
     @GetMapping(value = "/resized/all", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ResponseEntity<ImageDto>> getAllImages() {
         return imageService.getAllResizedImages()
-                .concatWith(Flux.just(new ImageDto(COMPLETE_REQUEST, COMPLETE_REQUEST, COMPLETE_REQUEST)))
+                .concatWith(Flux.just(new ImageDto(COMPLETE_REQUEST, COMPLETE_REQUEST, COMPLETE_REQUEST, 0, 0))
+                        .delayElements(java.time.Duration.ofSeconds(1)))
                 .map(element -> ResponseEntity.ok().body(element));
     }
 

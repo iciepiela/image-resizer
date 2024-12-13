@@ -9,6 +9,7 @@ const ImageGrid = () => {
     const [images, setImages] = useState([]);
     const [hoveredImage, setHoveredImage] = useState(null);
     const [hoveredImageStyle, setHoveredImageStyle] = useState({});
+    const [hoveredImageClicked, setHoveredImageClicked] = useState(false);
     const [sessionKey, setSessionKey] = useState();
 
     const COMPLETE_REQUEST = "COMPLETE_REQUEST"
@@ -57,7 +58,6 @@ const ImageGrid = () => {
                         height: imageData.height,
                         loaded: true
                     };
-                    console.log(newImage);
                     if (all) {
                         setImages((prevImages) =>
                             prevImages.some((image) => image.imageKey === newImage.imageKey)
@@ -102,7 +102,6 @@ const ImageGrid = () => {
 
         try {
             const response = await uploadImagesToBackend(preparedImages);
-            console.log(response);
 
             if (response) {
                 console.log("All photos uploaded successfully.");
@@ -152,44 +151,42 @@ const ImageGrid = () => {
         }
     };
 
-    // const fetchOriginalImageFromResizedId = async (resizedImageId) => {
-    //     try {
-    //         const response = await fetch(`http://localhost:8080/images/original/from-resized/${resizedImageId}`);
-    //         if (!response.ok) {
-    //             throw new Error(`Failed to fetch original image: ${response.status}`);
-    //         }
-    //         const data = await response.json();
-    //         return data.base64;
-    //     } catch (error) {
-    //         console.error('Error fetching original image:', error);
-    //         return null;
-    //     }
-    // };
-    
-    
 
-    const handleMouseEnter = async (image, event) => {
-        // try {
-        //     const originalBase64 = await fetchOriginalImageFromResizedId(image.imageId); // Fetch original using resized image ID
-        //     if (originalBase64) {
-        //         setHoveredImage(`data:image/jpg;base64,${originalBase64}`);
-        //     } else {
-        //         console.warn('Failed to load original image');
-        //     }
-        //     const rect = event.currentTarget.getBoundingClientRect();
-        //     setHoveredImageStyle({
-        //         top: `${rect.bottom + window.scrollY}px`,
-        //         left: `${rect.left + window.scrollX}px`,
-        //     });
-        // } catch (error) {
-        //     console.error('Error fetching hover image:', error);
-        // }
+    const fetchOriginalImage = async (imageKey) => {
+        try {
+            const response = await fetch(`http://localhost:8080/images/original?imageKey=${imageKey}`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+            });
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            const imageData = await response.json();
+            return imageData;
+        } catch (error) {
+            console.error('Error fetching original image:', error);
+            return null;
+        }
     };
     
     
+    const handleMouseEnter = async (image) => {
+        setHoveredImageClicked(true);
+        const fetchedImage = await fetchOriginalImage(image.imageKey);
+        if (fetchedImage) {
+            setHoveredImage(fetchedImage.base64);
+            setHoveredImageStyle({
+                width: `${fetchedImage.width}px`,
+                height: `${fetchedImage.height}px`,
+            });
+        }
+    };
+
 
     const closeHoverImage = () => {
         setHoveredImage(null);
+        setHoveredImageStyle({});
+        setHoveredImageClicked(false);
     };
 
     return (
@@ -212,42 +209,46 @@ const ImageGrid = () => {
             </Button>
             </div>
             <div className='image-grid'>
-                <h1>Photos</h1>
-                {images.map((image) => {
-                    return (
-                        <div 
-                        key={image.key} 
-                        className='image-grid-item'
-                        onClick={(e) => handleMouseEnter(image, e)}
-                    >
-                        {image.loaded ? (
-                            <img
-                                src={image.base64}
-                                alt={`Image ${image.name}`}
-                                className='image-grid-item-image'
-                                style={{
-                                    width: `${image.width}px`,
-                                    height: `${image.height}px`,
-                                }}
-                            />
-                        ) : (
-                            <div className='image-grid-placeholder'>
-                                <div class="loader"></div>
-                            </div>
-                        )}
-                    </div>
-                    );
-                })}
+    <h1>Photos</h1>
+    {images.map((image) => (
+        <div 
+            key={image.imageKey} 
+            className='image-grid-item'
+            onClick={(e) => handleMouseEnter(image, e)}
+        >
+            {image.loaded ? (
+                <img
+                    src={image.base64}
+                    alt={`Image ${image.name}`}
+                    className='image-grid-item-image'
+                    style={{
+                        width: `${image.width}px`,
+                        height: `${image.height}px`,
+                    }}
+                />
+            ) : (
+                <div className='image-grid-placeholder'>
+                    <div className="loader"></div>
                 </div>
-                {hoveredImage && (
-                    <div
-                        className='hover-image-window'
-                        style={{ ...hoveredImageStyle, position: 'absolute' }}
-                    >
-                        <Button variant="contained" className='close-hover-image' onClick={closeHoverImage}>X</Button>
-                        <img src={hoveredImage} alt="Hovered Preview" />
-                    </div>
-                )}
+            )}
+        </div>
+    ))}
+</div>
+{hoveredImageClicked && (
+    <div className='hover-image-window'>
+    <Button variant="contained" className='close-hover-image' onClick={closeHoverImage}>X</Button>
+    {hoveredImage ? (
+        <img src={hoveredImage} alt="Hovered Preview" />)
+        : (
+            <div className='hover-image-grid-placeholder'>
+                <div className="loader"></div>
+            </div>
+        )}
+
+    </div>
+)}
+
+
                 </div>
     );
 };

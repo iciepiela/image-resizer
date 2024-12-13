@@ -11,4 +11,6 @@ public class ImageDto {
     private String imageKey;
     private String name;
     private String base64;
+    private Integer width;
+    private Integer height;
 }
