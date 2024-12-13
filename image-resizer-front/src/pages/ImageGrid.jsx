@@ -1,19 +1,39 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { fromEvent, takeWhile } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { extractZip } from '../ImageUtils';
-import './ImageGrid.css';
+import './ImageGrid.css'
 import Button from '@mui/material/Button';
 
 const ImageGrid = () => {
     const [images, setImages] = useState([]);
     const [hoveredImage, setHoveredImage] = useState(null);
     const [hoveredImageStyle, setHoveredImageStyle] = useState({});
-    const COMPLETE_REQUEST="COMPLETE_REQUEST"
+    const [sessionKey, setSessionKey] = useState();
 
-    const loadPhotos = () => {
+    const COMPLETE_REQUEST = "COMPLETE_REQUEST"
+
+    useEffect(() => {
+        const savedImages = localStorage.getItem('images');
+        if (savedImages) {
+            setImages(JSON.parse(savedImages));
+        }
+        if (sessionKey) {
+            loadPhotos();
+        }
+    }, [sessionKey]);
+
+    useEffect(() => {
+        if (images.length > 0) {
+            localStorage.setItem('images', JSON.stringify(images));
+        }
+    }, [images]);
+
+    const loadPhotos = (all) => {
         console.log("Loading photos...")
-        const eventSource = new EventSource('http://localhost:8080/images/original');
+        const url = all ? `http://localhost:8080/images/resized/all` : `http://localhost:8080/images/resized?sessionKey=${sessionKey}`
+
+        const eventSource = new EventSource(url);
 
         const imageStream$ = fromEvent(eventSource, 'message').pipe(
             map((event) => {
@@ -28,19 +48,28 @@ const ImageGrid = () => {
                 if (imageData.name === COMPLETE_REQUEST && imageData.base64 === COMPLETE_REQUEST) {
                     console.log("ended");
                     eventSource.close();
-                } else  {
-                    const newImage = { 
-                        base64: `data:image/jpg;base64,${imageData.base64}`, 
+                } else {
+                    const newImage = {
+                        base64: `data:image/jpg;base64,${imageData.base64}`,
                         name: imageData.name,
-                        key: imageData.key,
+                        imageKey: imageData.imageKey,
                         loaded: true
                     };
                     console.log(newImage);
-                    setImages((prevImages) =>
-                        prevImages.some((image) => image.key === newImage.key)
-                          ? prevImages.map((image) => (image.key === newImage.key ? newImage : image))
-                          : [...prevImages, newImage]
-                      );
+                    if (all) {
+                        setImages((prevImages) =>
+                            prevImages.some((image) => image.imageKey === newImage.imageKey)
+                                ? prevImages.map((image) => (image))
+                                : [...prevImages, newImage]
+                        )
+                    } else {
+                        setImages((prevImages) =>
+                            prevImages.some((image) => image.imageKey === newImage.imageKey)
+                                ? prevImages.map((image) => (image.imageKey === newImage.imageKey ? newImage : image))
+                                : [...prevImages, newImage]
+                        );
+                    }
+
                 }
 
             },
@@ -49,6 +78,7 @@ const ImageGrid = () => {
             },
             complete: () => { console.log("Complete") }
         });
+
 
         return () => {
             eventSource.close();
@@ -59,24 +89,25 @@ const ImageGrid = () => {
     const uploadPhotos = async (imageList) => {
         console.log("Starting photo upload...");
 
+
         const preparedImages = imageList.map(image => ({
-            key: image.key,
+            imageKey: image.imageKey,
             name: image.name,
-            base64: image.base64,
-            // width: image.width,
-            // height: image.height
+            base64: image.base64
         }));
 
         try {
             const response = await uploadImagesToBackend(preparedImages);
+            console.log(response);
 
             if (response) {
                 console.log("All photos uploaded successfully.");
+                setSessionKey(response);
             } else {
                 console.log("Failed to upload photos.");
             }
 
-            loadPhotos();
+
         } catch (error) {
             console.error("Error uploading photos:", error);
         }
@@ -94,8 +125,8 @@ const ImageGrid = () => {
                 throw new Error(`HTTP error! Status: ${response.status}`);
             }
 
-            const responseBody = await response.json();
-            console.log("Photos uploaded successfully: ", responseBody);
+            const responseBody = await response.text();
+            console.log("SessionKey retrieved: ", responseBody);
             return responseBody;
         } catch (error) {
             console.error('Error during fetch:', error);
@@ -107,10 +138,11 @@ const ImageGrid = () => {
         const file = event.target.files[0];
         if (file && file.name.endsWith('.zip')) {
             extractZip(file)
-            .then(loadedImgs => {
-                setImages(loadedImgs);
-                uploadPhotos(loadedImgs);
-            })
+                .then(loadedImgs => {
+                    setImages((prevImages) => [...prevImages, ...loadedImgs]);
+                    uploadPhotos(loadedImgs);
+
+                })
         } else {
             alert('Please upload a valid ZIP file.');
         }
@@ -138,7 +170,7 @@ const ImageGrid = () => {
     return (
         <div className='main_container'>
             <div className='top-bar'>
-                <Button variant="outlined" onClick={loadPhotos}>Load</Button>
+            <Button variant="outlined" onClick={loadPhotos}>Load</Button>
                 <Button
                 variant="outlined"
                 component="label"
@@ -155,42 +187,43 @@ const ImageGrid = () => {
             </Button>
             </div>
             <div className='image-grid'>
+                <h1>Photos</h1>
                 {images.map((image) => {
                     return (
                         <div 
-                            key={image.key} 
-                            className='image-grid-item'
-                            onClick={(e) => handleMouseEnter(image, e)}
-                            // style={{
-                            //     width: `${image.width}px`,
-                            //     height: `${image.height}px`,
-                            // }}
-                        >
-                            {image.loaded ? (
-                                <img
-                                    src={image.base64}
-                                    alt={`Image ${image.name}`}
-                                    className='image-grid-item-image'
-                                />
-                            ) : (
-                                <div className='image-grid-placeholder'>
-                                    <span>Loading image...</span>
-                                </div>
-                            )}
-                        </div>
+                        key={image.key} 
+                        className='image-grid-item'
+                        onClick={(e) => handleMouseEnter(image, e)}
+                        // style={{
+                        //     width: `${image.width}px`,
+                        //     height: `${image.height}px`,
+                        // }}
+                    >
+                        {image.loaded ? (
+                            <img
+                                src={image.base64}
+                                alt={`Image ${image.name}`}
+                                className='image-grid-item-image'
+                            />
+                        ) : (
+                            <div className='image-grid-placeholder'>
+                                <span>Loading image...</span>
+                            </div>
+                        )}
+                    </div>
                     );
                 })}
-            </div>
-            {hoveredImage && (
-                <div
-                    className='hover-image-window'
-                    style={{ ...hoveredImageStyle, position: 'absolute' }}
-                >
-                    <Button variant="contained" className='close-hover-image' onClick={closeHoverImage}>X</Button>
-                    <img src={hoveredImage} alt="Hovered Preview" />
                 </div>
-            )}
-        </div>
+                {hoveredImage && (
+                    <div
+                        className='hover-image-window'
+                        style={{ ...hoveredImageStyle, position: 'absolute' }}
+                    >
+                        <Button variant="contained" className='close-hover-image' onClick={closeHoverImage}>X</Button>
+                        <img src={hoveredImage} alt="Hovered Preview" />
+                    </div>
+                )}
+                </div>
     );
 };
 export default ImageGrid;

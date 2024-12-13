@@ -14,7 +14,7 @@ export const extractZip = async (file) => {
                     loadedImgs.push({
                         name: zipEntry.name,
                         base64: `data:image/${getFileExtension(zipEntry.name)};base64,${base64Data}`,
-                        key: generateUniqueKey(),
+                        imageKey: generateUniqueKey(),
                         loaded: false
                     });
                 });
