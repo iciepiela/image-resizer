@@ -2,10 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { fromEvent, takeWhile } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { extractZip } from '../ImageUtils';
-import '../ImageGrid.css'
+import Button from '@mui/material/Button';
+import './ImageGrid.css'
 
 const ImageGrid = () => {
     const [images, setImages] = useState([]);
+    const [hoveredImage, setHoveredImage] = useState(null);
+    const [hoveredImageStyle, setHoveredImageStyle] = useState({});
     const [sessionKey, setSessionKey] = useState();
 
     const COMPLETE_REQUEST = "COMPLETE_REQUEST"
@@ -50,6 +53,8 @@ const ImageGrid = () => {
                         base64: `data:image/jpg;base64,${imageData.base64}`,
                         name: imageData.name,
                         imageKey: imageData.imageKey,
+                        width: imageData.width,
+                        height: imageData.height,
                         loaded: true
                     };
                     console.log(newImage);
@@ -82,6 +87,8 @@ const ImageGrid = () => {
             subscription.unsubscribe();
         };
     };
+
+
 
     const uploadPhotos = async (imageList) => {
         console.log("Starting photo upload...");
@@ -145,30 +152,103 @@ const ImageGrid = () => {
         }
     };
 
+    // const fetchOriginalImageFromResizedId = async (resizedImageId) => {
+    //     try {
+    //         const response = await fetch(`http://localhost:8080/images/original/from-resized/${resizedImageId}`);
+    //         if (!response.ok) {
+    //             throw new Error(`Failed to fetch original image: ${response.status}`);
+    //         }
+    //         const data = await response.json();
+    //         return data.base64;
+    //     } catch (error) {
+    //         console.error('Error fetching original image:', error);
+    //         return null;
+    //     }
+    // };
+    
+    
+
+    const handleMouseEnter = async (image, event) => {
+        // try {
+        //     const originalBase64 = await fetchOriginalImageFromResizedId(image.imageId); // Fetch original using resized image ID
+        //     if (originalBase64) {
+        //         setHoveredImage(`data:image/jpg;base64,${originalBase64}`);
+        //     } else {
+        //         console.warn('Failed to load original image');
+        //     }
+        //     const rect = event.currentTarget.getBoundingClientRect();
+        //     setHoveredImageStyle({
+        //         top: `${rect.bottom + window.scrollY}px`,
+        //         left: `${rect.left + window.scrollX}px`,
+        //     });
+        // } catch (error) {
+        //     console.error('Error fetching hover image:', error);
+        // }
+    };
+    
+    
+
+    const closeHoverImage = () => {
+        setHoveredImage(null);
+    };
 
     return (
-        <div>
-            <button onClick={() => loadPhotos(true)}>Load</button>
-            <input type="file" onChange={handleFileChange} />
-            <div>
+        <div className='main_container'>
+            <div className='top-bar'>
+            <Button variant="outlined" onClick={loadPhotos}>Load</Button>
+                <Button
+                variant="outlined"
+                component="label"
+                className='top-bar-button'
+                sx={{marginRight: 5 }}
+                >
+                Upload ZIP
+                <input
+                    type="file"
+                    accept=".zip"
+                    onChange={handleFileChange}
+                    style={{ display: 'none' }}
+                />
+            </Button>
+            </div>
+            <div className='image-grid'>
                 <h1>Photos</h1>
-                {images.map((image) => (
-                    <div key={image.imageKey} style={{ margin: '10px', display: 'inline-block' }}>
+                {images.map((image) => {
+                    return (
+                        <div 
+                        key={image.key} 
+                        className='image-grid-item'
+                        onClick={(e) => handleMouseEnter(image, e)}
+                    >
                         {image.loaded ? (
                             <img
                                 src={image.base64}
                                 alt={`Image ${image.name}`}
-                                style={{ width: '200px', height: 'auto', borderRadius: '8px' }}
+                                className='image-grid-item-image'
+                                style={{
+                                    width: `${image.width}px`,
+                                    height: `${image.height}px`,
+                                }}
                             />
                         ) : (
-                            <div style={{ width: '200px', height: '200px', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#f0f0f0', borderRadius: '8px' }}>
-                                <div class="loader"></div>
+                            <div className='image-grid-placeholder'>
+                                <span>Loading image...</span>
                             </div>
                         )}
                     </div>
-                ))}
-            </div>
-        </div>
+                    );
+                })}
+                </div>
+                {hoveredImage && (
+                    <div
+                        className='hover-image-window'
+                        style={{ ...hoveredImageStyle, position: 'absolute' }}
+                    >
+                        <Button variant="contained" className='close-hover-image' onClick={closeHoverImage}>X</Button>
+                        <img src={hoveredImage} alt="Hovered Preview" />
+                    </div>
+                )}
+                </div>
     );
 };
 export default ImageGrid;
