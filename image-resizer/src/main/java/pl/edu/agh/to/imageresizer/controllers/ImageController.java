@@ -22,6 +22,12 @@ public class ImageController {
     private final ImageService imageService;
     private final String COMPLETE_REQUEST = "COMPLETE_REQUEST";
 
+    @GetMapping(value = "/original", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ResponseEntity<ImageDto>> getOriginalImage(@RequestParam String imageKey) {
+        return imageService.getOriginalImage(imageKey)
+                .map(element -> ResponseEntity.ok().body(element));
+    }
+
     @GetMapping(value = "/resized", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ResponseEntity<ImageDto>> getImagesBySessionKey(@RequestParam String sessionKey) {
         return imageService.getResizedImagesForSessionKey(sessionKey)

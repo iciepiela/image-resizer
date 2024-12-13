@@ -232,7 +232,7 @@ const ImageGrid = () => {
                             />
                         ) : (
                             <div className='image-grid-placeholder'>
-                                <span>Loading image...</span>
+                                <div class="loader"></div>
                             </div>
                         )}
                     </div>

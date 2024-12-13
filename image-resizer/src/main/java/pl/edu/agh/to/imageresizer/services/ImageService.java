@@ -33,6 +33,14 @@ public class ImageService {
                 .delayElements(Duration.ofSeconds(1));
     }
 
+    public Flux<ImageDto> getOriginalImage(String key) {
+        return Flux.just(key)
+                .flatMap(resizedImageRepository::findResizedImageByImageKey)
+                .flatMap(image -> originalImageRepository.findById(image.getOriginalImageId()))
+                .map(el -> new ImageDto(null, el.getName(), el.getBase64()))
+                .delayElements(Duration.ofSeconds(1));
+    }
+
     public Mono<Boolean> resizeAndSaveOriginalImage(ImageDto imageDto, String sessionKey) {
         return getImageDimensions(imageDto.getBase64())
                 .flatMap(dimensions -> {
