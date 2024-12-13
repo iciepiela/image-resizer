@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { fromEvent, takeWhile } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { extractZip } from '../ImageUtils';
-import './ImageGrid.css'
 import Button from '@mui/material/Button';
+import './ImageGrid.css'
 
 const ImageGrid = () => {
     const [images, setImages] = useState([]);
