@@ -89,3 +89,14 @@ Powiększanie obrazka zachodzi w następujący sposób:
 które zuploadował/załadował z bazy.
 - Przy kolejnych wciśnięciach przycisków kolejne zdjęcia wyświetlają się po tych wyświetlonych już wcześniej 
 (nie usuwamy wcześniej załadowanych zdjęć, lecz poszerzamy powstałą "galerię")
+
+
+### Fixy po review
+
+- [x] ImageDto na record
+- [x] ResizedImage i OriginalImage na prymitywy
+- [x] Usunąć Lomboka
+- [x] Uporządkować ImageService i przenieść ImageDto
+- [x] Usunąć packmana w ImageService
+- [] Dodać placeholdery ???
+- [] Naprawić asynchroniczność

@@ -6,7 +6,7 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.springframework.http.ResponseEntity;
 import pl.edu.agh.to.imageresizer.controllers.ImageController;
-import pl.edu.agh.to.imageresizer.model.ImageDto;
+import pl.edu.agh.to.imageresizer.dto.ImageDto;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;

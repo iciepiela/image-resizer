@@ -3,7 +3,7 @@ package pl.edu.agh.to.imageresizer.services;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
-import pl.edu.agh.to.imageresizer.model.ImageDto;
+import pl.edu.agh.to.imageresizer.dto.ImageDto;
 import pl.edu.agh.to.imageresizer.model.OriginalImage;
 import pl.edu.agh.to.imageresizer.model.ResizedImage;
 import reactor.core.publisher.Flux;
@@ -133,8 +133,8 @@ public class ImageServiceTest {
     }
 
     private boolean compareImages(ResizedImage resizedImage, ImageDto imageDto) {
-        return resizedImage.getImageKey().equals(imageDto.getImageKey()) &&
-                resizedImage.getBase64().equals(imageDto.getBase64()) &&
-                resizedImage.getName().equals(imageDto.getName());
+        return resizedImage.getImageKey().equals(imageDto.imageKey()) &&
+                resizedImage.getBase64().equals(imageDto.base64()) &&
+                resizedImage.getName().equals(imageDto.name());
     }
 }
