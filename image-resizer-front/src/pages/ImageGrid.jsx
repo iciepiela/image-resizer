@@ -4,6 +4,7 @@ import { map } from "rxjs/operators";
 import { extractZip } from "../ImageUtils";
 import Button from "@mui/material/Button";
 import "./ImageGrid.css";
+import { EventSourcePolyfill } from 'event-source-polyfill';
 
 const ImageGrid = () => {
   const [images, setImages] = useState([]);
@@ -69,8 +70,8 @@ const ImageGrid = () => {
             setImages((prevImages) =>
               prevImages.some((image) => image.imageKey === newImage.imageKey)
                 ? prevImages.map((image) =>
-                    image.imageKey === newImage.imageKey ? newImage : image,
-                  )
+                  image.imageKey === newImage.imageKey ? newImage : image,
+                )
                 : [...prevImages, newImage],
             );
           }
@@ -91,6 +92,12 @@ const ImageGrid = () => {
   };
 
   const uploadPhotos = async (imageList) => {
+
+    for (let i = imageList.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+
+      [imageList[i], imageList[j]] = [imageList[j], imageList[i]];
+    }
     console.log("Starting photo upload...");
 
     const preparedImages = imageList.map((image) => ({
@@ -99,40 +106,69 @@ const ImageGrid = () => {
       base64: image.base64,
     }));
 
-    try {
-      const response = await uploadImagesToBackend(preparedImages);
+    const url = `http://localhost:8080/images/upload`;
 
-      if (response) {
-        console.log("All photos uploaded successfully.");
-        setSessionKey(response);
-      } else {
-        console.log("Failed to upload photos.");
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(preparedImages),
+    });
+    console.log(preparedImages)
+
+    const reader = response.body.getReader();
+    let done = false;
+    var i = 0;
+    var accumulatedData = "";
+    while (!done) {
+      const { chunkDone, value } = await reader.read();
+      done = chunkDone || done;
+      console.log(done)
+      const decodedData = new TextDecoder().decode(value);
+      console.log(accumulatedData)
+      accumulatedData += decodedData.trim();
+
+      console.log(accumulatedData)
+
+
+      if (accumulatedData.includes("statusCode")) {
+
+
+        const data = accumulatedData.split(/"statusCodeValue":200}/)[0].split(/data:(.*)/s)[1] + "\"statusCodeValue\":200}"
+        accumulatedData = accumulatedData.split(/"statusCodeValue":200}(.*)/s)[1];
+        console.log("data", data)
+        if (data.includes(COMPLETE_REQUEST)) break;
+
+        
+        const parsedData = JSON.parse(data).body;
+        console.log(parsedData.name)
+
+
+        const newImage = {
+          base64: `data:image/jpg;base64,${parsedData.base64}`,
+          name: parsedData.name,
+          imageKey: parsedData.imageKey,
+          width: parsedData.width,
+          height: parsedData.height,
+          loaded: true,
+        };
+
+        setImages((prevImages) =>
+          prevImages.some((image) => image.imageKey === newImage.imageKey)
+            ? prevImages.map((image) =>
+              image.imageKey === newImage.imageKey ? newImage : image
+            )
+            : [...prevImages, newImage]
+        );
+
       }
-    } catch (error) {
-      console.error("Error uploading photos:", error);
+
     }
+
+    console.log("Upload complete");
   };
 
-  const uploadImagesToBackend = async (images) => {
-    try {
-      const response = await fetch("http://localhost:8080/images/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(images),
-      });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
-      }
 
-      const responseBody = await response.text();
-      console.log("SessionKey retrieved: ", responseBody);
-      return responseBody;
-    } catch (error) {
-      console.error("Error during fetch:", error);
-      throw error;
-    }
-  };
 
   const handleFileChange = (event) => {
     const file = event.target.files[0];

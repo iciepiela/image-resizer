@@ -46,22 +46,21 @@ public class ImageService {
         return originalImageRepository.save(originalImage);
     }
 
-    private Mono<Boolean> resizeAndSaveResizedImage(ImageDto imageDto, String sessionKey,OriginalImage savedOriginalImage) {
+    private Mono<ResizedImage> resizeAndSaveResizedImage(ImageDto imageDto, String sessionKey,OriginalImage savedOriginalImage) {
         return imageResizer.resize(imageDto, sessionKey)
                 .flatMap(resizedImage -> {
                     resizedImage.setOriginalImageId(savedOriginalImage.getImageId());
-                    return resizedImageRepository.save(resizedImage)
-                            .then(Mono.just(true));
+                    return resizedImageRepository.save(resizedImage);
                 });
     }
 
-    public Mono<Boolean> resizeAndSaveOriginalImage(ImageDto imageDto, String sessionKey) {
+    public Mono<ResizedImage> resizeAndSaveOriginalImage(ImageDto imageDto, String sessionKey) {
         return getImageDimensions(imageDto.base64())
                 .flatMap(dimensions -> saveOriginalImage(imageDto,dimensions))
                 .flatMap(savedOriginalImage -> resizeAndSaveResizedImage(imageDto, sessionKey,savedOriginalImage))
                 .onErrorResume(e -> {
                     e.printStackTrace();
-                    return Mono.just(false);
+                    return Mono.empty();
                 });
     }
 

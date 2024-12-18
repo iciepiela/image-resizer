@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ServerWebExchange;
 import pl.edu.agh.to.imageresizer.dto.ImageDto;
 import pl.edu.agh.to.imageresizer.services.ImageService;
 import reactor.core.publisher.Flux;
@@ -17,8 +18,8 @@ import java.util.List;
 @RestController
 @RequestMapping("/images")
 public class ImageController {
-    private final ImageService imageService;
     private static final Logger logger = LoggerFactory.getLogger(ImageController.class);
+    private final ImageService imageService;
     private final String COMPLETE_REQUEST = "COMPLETE_REQUEST";
 
     public ImageController(ImageService imageService) {
@@ -68,16 +69,26 @@ public class ImageController {
                 .map(element -> ResponseEntity.ok().body(element));
     }
 
-    @PostMapping(value = "/upload", produces = MediaType.APPLICATION_JSON_VALUE)
-    public Mono<ResponseEntity<String>> uploadImages(@RequestBody List<ImageDto> images, HttpSession httpSession) {
-        String sessionKey = httpSession.getId();
+    @PostMapping(value = "/upload", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ResponseEntity<ImageDto>> uploadImages(@RequestBody List<ImageDto> images) {
         return Flux.fromIterable(images)
-                .flatMap(image -> imageService.resizeAndSaveOriginalImage(image, sessionKey))
-                .then(Mono.just(ResponseEntity.ok(sessionKey)))
+                .flatMap(image -> imageService.resizeAndSaveOriginalImage(image, "2"))
+                .map(resizedImage -> new ImageDto(
+                        resizedImage.getImageKey(),
+                        resizedImage.getName(),
+                        resizedImage.getBase64(),
+                        resizedImage.getWidth(),
+                        resizedImage.getHeight()))
+                .concatWith(Flux.just(new ImageDto(COMPLETE_REQUEST, COMPLETE_REQUEST, COMPLETE_REQUEST, 0, 0))) // Add the completion signal here
+                .delayElements(java.time.Duration.ofSeconds(1))
+                .map(element -> ResponseEntity.ok().body(element))
+                .doOnNext(response -> logger.info(response.getBody().toString()))
                 .onErrorResume(e -> {
                     e.printStackTrace();
-                    return Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null));
+                    return Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                            .body(null));
                 });
-
     }
+
+
 }
