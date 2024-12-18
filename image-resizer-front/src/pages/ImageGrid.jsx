@@ -15,20 +15,11 @@ const ImageGrid = () => {
   const COMPLETE_REQUEST = "COMPLETE_REQUEST";
 
   useEffect(() => {
-    const savedImages = localStorage.getItem("images");
-    if (savedImages) {
-      setImages(JSON.parse(savedImages));
-    }
     if (sessionKey) {
       loadPhotos();
     }
   }, [sessionKey]);
 
-  useEffect(() => {
-    if (images.length > 0) {
-      localStorage.setItem("images", JSON.stringify(images));
-    }
-  }, [images]);
 
   const loadPhotos = (all) => {
     console.log("Loading photos...");
