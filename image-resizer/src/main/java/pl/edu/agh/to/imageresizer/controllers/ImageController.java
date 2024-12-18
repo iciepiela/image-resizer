@@ -38,6 +38,12 @@ public class ImageController {
                 .map(element -> ResponseEntity.ok().body(element));
     }
 
+    @GetMapping(value= "/resized/image",produces = MediaType.APPLICATION_JSON_VALUE )
+    public Mono<ResponseEntity<ImageDto>> getResizedImage(@RequestParam String imageKey) {
+        return imageService.getResizedImage(imageKey)
+                .map(element -> ResponseEntity.ok().body(element));
+    }
+
     @GetMapping(value = "/resized", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ResponseEntity<ImageDto>> getImagesBySessionKey(@RequestParam String sessionKey) {
         return imageService.getResizedImagesForSessionKey(sessionKey)
@@ -71,13 +77,38 @@ public class ImageController {
     @PostMapping(value = "/upload", produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<ResponseEntity<String>> uploadImages(@RequestBody List<ImageDto> images, HttpSession httpSession) {
         String sessionKey = httpSession.getId();
-        return Flux.fromIterable(images)
-                .flatMap(image -> imageService.resizeAndSaveOriginalImage(image, sessionKey))
-                .then(Mono.just(ResponseEntity.ok(sessionKey)))
+
+        Flux.fromIterable(images)
+                .flatMap(image -> imageService.resizeAndSaveOriginalImage(image, sessionKey)
+                        .doOnNext(imageService::addNewResponse)
+                )
+                .subscribe();
+
+        return Mono.just(ResponseEntity.ok(sessionKey))
                 .onErrorResume(e -> {
                     e.printStackTrace();
-                    return Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null));
+                    return Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error processing images"));
                 });
+    }
 
+
+
+    @GetMapping(value = "/upload/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ResponseEntity<ImageDto>> streamUploadResponses(@RequestParam String sessionKey) {
+        return imageService.getUploadResponses(sessionKey)
+                .map(resizedImage -> new ImageDto(
+                        resizedImage.getImageKey(),
+                        resizedImage.getName(),
+                        resizedImage.getBase64(),
+                        resizedImage.getWidth(),
+                        resizedImage.getHeight()
+                ))
+                .map(ResponseEntity::ok)
+                .concatWith(Mono.just(ResponseEntity.ok(new ImageDto(COMPLETE_REQUEST, COMPLETE_REQUEST, COMPLETE_REQUEST, 0, 0))))
+                .onErrorResume(e -> {
+                    e.printStackTrace();
+                    return Flux.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                            .body(new ImageDto(COMPLETE_REQUEST, COMPLETE_REQUEST, COMPLETE_REQUEST, 0, 0)));
+                });
     }
 }

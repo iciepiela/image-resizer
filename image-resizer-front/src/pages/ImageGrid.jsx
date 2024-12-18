@@ -14,21 +14,21 @@ const ImageGrid = () => {
 
   const COMPLETE_REQUEST = "COMPLETE_REQUEST";
 
-  useEffect(() => {
-    const savedImages = localStorage.getItem("images");
-    if (savedImages) {
-      setImages(JSON.parse(savedImages));
-    }
-    if (sessionKey) {
-      loadPhotos();
-    }
-  }, [sessionKey]);
+  // useEffect(() => {
+  //   const savedImages = localStorage.getItem("images");
+  //   if (savedImages) {
+  //     setImages(JSON.parse(savedImages));
+  //   }
+  //   if (sessionKey) {
+  //     loadPhotos();
+  //   }
+  // }, [sessionKey]);
 
-  useEffect(() => {
-    if (images.length > 0) {
-      localStorage.setItem("images", JSON.stringify(images));
-    }
-  }, [images]);
+  // useEffect(() => {
+  //   if (images.length > 0) {
+  //     localStorage.setItem("images", JSON.stringify(images));
+  //   }
+  // }, [images]);
 
   const loadPhotos = (all) => {
     console.log("Loading photos...");
@@ -100,27 +100,14 @@ const ImageGrid = () => {
   };
 
   const uploadPhotos = async (imageList) => {
-    console.log("Starting photo upload...");
-
-    const preparedImages = imageList.map((image) => ({
-      imageKey: image.imageKey,
-      name: image.name,
-      base64: image.base64,
-    }));
-
     try {
-      const response = await uploadImagesToBackend(preparedImages);
-
-      if (response) {
-        console.log("All photos uploaded successfully.");
-        setSessionKey(response);
-      } else {
-        console.log("Failed to upload photos.");
-      }
+      const sessionKey = await uploadImagesToBackend(imageList); // Wysyłanie obrazków
+      listenToUploadStream(sessionKey); // Odbieranie odpowiedzi
     } catch (error) {
-      console.error("Error uploading photos:", error);
+      console.error("Error during upload:", error);
     }
   };
+  
 
   const uploadImagesToBackend = async (images) => {
     try {
@@ -129,19 +116,81 @@ const ImageGrid = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(images),
       });
-
+  
       if (!response.ok) {
         throw new Error(`HTTP error! Status: ${response.status}`);
       }
-
-      const responseBody = await response.text();
-      console.log("SessionKey retrieved: ", responseBody);
-      return responseBody;
+  
+      const sessionKey = await response.text(); 
+      console.log("Session key received:", sessionKey);
+      return sessionKey;
     } catch (error) {
       console.error("Error during fetch:", error);
       throw error;
     }
   };
+
+  const listenToUploadStream = (sessionKey) => {
+    const url = `http://localhost:8080/images/upload/stream?sessionKey=${sessionKey}`;
+    const eventSource = new EventSource(url);
+  
+    const imageStream$ = fromEvent(eventSource, "message").pipe(
+      map((event) => {
+        const parsedData = JSON.parse(event.data);
+        console.log("Image received: ",parsedData.data)
+        return parsedData.body;
+      }),
+      takeWhile(
+        (imageData) =>
+          imageData.name !== COMPLETE_REQUEST ||
+          imageData.base64 !== COMPLETE_REQUEST,
+        true
+      )
+    );
+  
+    const subscription = imageStream$.subscribe({
+      next: (imageData) => {
+        if (
+          imageData.name === COMPLETE_REQUEST &&
+          imageData.base64 === COMPLETE_REQUEST
+        ) {
+          console.log("Upload stream ended.");
+          eventSource.close();
+        } else {
+          const newImage = {
+            base64: `data:image/jpg;base64,${imageData.base64}`,
+            name: imageData.name,
+            imageKey: imageData.imageKey,
+            width: imageData.width,
+            height: imageData.height,
+            loaded: true,
+          };
+  
+          setImages((prevImages) =>
+            prevImages.some((image) => image.imageKey === newImage.imageKey)
+              ? prevImages.map((image) =>
+                  image.imageKey === newImage.imageKey ? newImage : image
+                )
+              : [...prevImages, newImage]
+          );
+        }
+      },
+      error: (err) => {
+        console.error("Error receiving upload responses:", err);
+      },
+      complete: () => {
+        console.log("All responses received.");
+      },
+    });
+  
+    return () => {
+      eventSource.close();
+      subscription.unsubscribe();
+    };
+  };
+  
+  
+  
 
   const handleFileChange = (event) => {
     const file = event.target.files[0];

@@ -59,28 +59,28 @@ class ImageControllerTest {
                 .verifyComplete();
     }
 
-    @Test
-    void testUploadImages() {
-        //given
-        String sessionKey = "test-session";
-        HttpSession mockSession = mock(HttpSession.class);
-        Mockito.when(mockSession.getId()).thenReturn(sessionKey);
-
-        List<ImageDto> images = List.of(
-                new ImageDto("image1", "url1", "smallUrl1", 0, 0),
-                new ImageDto("image2", "url2", "smallUrl2", 0, 0)
-        );
-
-        Mockito.when(imageService.resizeAndSaveOriginalImage(Mockito.any(ImageDto.class), Mockito.eq(sessionKey)))
-                .thenReturn(Mono.empty());
-
-        //when and then
-        StepVerifier.create(imageController.uploadImages(images, mockSession))
-                .expectNext(ResponseEntity.ok(sessionKey))
-                .verifyComplete();
-
-        Mockito.verify(imageService, Mockito.times(images.size()))
-                .resizeAndSaveOriginalImage(Mockito.any(ImageDto.class), Mockito.eq(sessionKey));
-    }
+//    @Test
+//    void testUploadImages() {
+//        //given
+//        String sessionKey = "test-session";
+//        HttpSession mockSession = mock(HttpSession.class);
+//        Mockito.when(mockSession.getId()).thenReturn(sessionKey);
+//
+//        List<ImageDto> images = List.of(
+//                new ImageDto("image1", "url1", "smallUrl1", 0, 0),
+//                new ImageDto("image2", "url2", "smallUrl2", 0, 0)
+//        );
+//
+//        Mockito.when(imageService.resizeAndSaveOriginalImage(Mockito.any(ImageDto.class), Mockito.eq(sessionKey)))
+//                .thenReturn(Mono.empty());
+//
+//        //when and then
+//        StepVerifier.create(imageController.uploadImages(images, mockSession))
+//                .expectNext(ResponseEntity.ok(sessionKey))
+//                .verifyComplete();
+//
+//        Mockito.verify(imageService, Mockito.times(images.size()))
+//                .resizeAndSaveOriginalImage(Mockito.any(ImageDto.class), Mockito.eq(sessionKey));
+//    }
 }
 

@@ -1,5 +1,6 @@
 package pl.edu.agh.to.imageresizer.services;
 
+import io.micrometer.observation.ObservationFilter;
 import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Service;
 import pl.edu.agh.to.imageresizer.dto.ImageDto;
@@ -7,17 +8,22 @@ import pl.edu.agh.to.imageresizer.model.OriginalImage;
 import pl.edu.agh.to.imageresizer.model.ResizedImage;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Sinks;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 public class ImageService {
     private final OriginalImageRepository originalImageRepository;
     private final ResizedImageRepository resizedImageRepository;
     private final ImageResizer imageResizer;
+    private final Sinks.Many<ResizedImage> sink = Sinks.many().multicast().onBackpressureBuffer();
+
 
     public ImageService(OriginalImageRepository originalImageRepository, ResizedImageRepository resizedImageRepository, ImageResizer imageResizer) {
         this.originalImageRepository = originalImageRepository;
@@ -41,27 +47,31 @@ public class ImageService {
                 .delayElement(Duration.ofSeconds(1));
     }
 
-    private Mono<OriginalImage> saveOriginalImage(ImageDto imageDto,Pair<Integer,Integer> dimensions) {
+    private Mono<OriginalImage> saveOriginalImage(ImageDto imageDto, Pair<Integer, Integer> dimensions) {
         OriginalImage originalImage = new OriginalImage(imageDto.name(), imageDto.base64(), dimensions.getFirst(), dimensions.getSecond());
         return originalImageRepository.save(originalImage);
     }
 
-    private Mono<Boolean> resizeAndSaveResizedImage(ImageDto imageDto, String sessionKey,OriginalImage savedOriginalImage) {
+    private Mono<ResizedImage> resizeAndSaveResizedImage(ImageDto imageDto, String sessionKey, OriginalImage savedOriginalImage) {
         return imageResizer.resize(imageDto, sessionKey)
                 .flatMap(resizedImage -> {
                     resizedImage.setOriginalImageId(savedOriginalImage.getImageId());
-                    return resizedImageRepository.save(resizedImage)
-                            .then(Mono.just(true));
+                    return resizedImageRepository.save(resizedImage);
                 });
     }
 
-    public Mono<Boolean> resizeAndSaveOriginalImage(ImageDto imageDto, String sessionKey) {
+    public Mono<ImageDto> getResizedImage(String key) {
+        return resizedImageRepository.findResizedImageByImageKey(key)
+                .map(el -> new ImageDto(el.getImageKey(), el.getName(), el.getBase64(), el.getWidth(), el.getHeight()));
+    }
+
+    public Mono<ResizedImage> resizeAndSaveOriginalImage(ImageDto imageDto, String sessionKey) {
         return getImageDimensions(imageDto.base64())
-                .flatMap(dimensions -> saveOriginalImage(imageDto,dimensions))
-                .flatMap(savedOriginalImage -> resizeAndSaveResizedImage(imageDto, sessionKey,savedOriginalImage))
+                .flatMap(dimensions -> saveOriginalImage(imageDto, dimensions))
+                .flatMap(savedOriginalImage -> resizeAndSaveResizedImage(imageDto, sessionKey, savedOriginalImage))
                 .onErrorResume(e -> {
                     e.printStackTrace();
-                    return Mono.just(false);
+                    return Mono.empty();
                 });
     }
 
@@ -80,4 +90,14 @@ public class ImageService {
         });
     }
 
+    public void addNewResponse(ResizedImage resizedImage) {
+        sink.tryEmitNext(resizedImage);
+    }
+
+    public Flux<ResizedImage> getUploadResponses(String sessionKey) {
+
+        return sink.asFlux()
+                .filter(image -> image.getSessionKey().equals(sessionKey));
+
+    }
 }
