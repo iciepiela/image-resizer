@@ -41,27 +41,27 @@ public class ImageService {
                 .delayElement(Duration.ofSeconds(1));
     }
 
-    private Mono<OriginalImage> saveOriginalImage(ImageDto imageDto,Pair<Integer,Integer> dimensions) {
+    public Mono<Boolean> resizeAndSaveOriginalImage(ImageDto imageDto, String sessionKey) {
+        return getImageDimensions(imageDto.base64())
+                .flatMap(dimensions -> saveOriginalImage(imageDto, dimensions))
+                .flatMap(savedOriginalImage -> resizeAndSaveResizedImage(imageDto, sessionKey, savedOriginalImage))
+                .onErrorResume(e -> {
+                    e.printStackTrace();
+                    return Mono.just(false);
+                });
+    }
+
+    private Mono<OriginalImage> saveOriginalImage(ImageDto imageDto, Pair<Integer, Integer> dimensions) {
         OriginalImage originalImage = new OriginalImage(imageDto.name(), imageDto.base64(), dimensions.getFirst(), dimensions.getSecond());
         return originalImageRepository.save(originalImage);
     }
 
-    private Mono<Boolean> resizeAndSaveResizedImage(ImageDto imageDto, String sessionKey,OriginalImage savedOriginalImage) {
+    private Mono<Boolean> resizeAndSaveResizedImage(ImageDto imageDto, String sessionKey, OriginalImage savedOriginalImage) {
         return imageResizer.resize(imageDto, sessionKey)
                 .flatMap(resizedImage -> {
                     resizedImage.setOriginalImageId(savedOriginalImage.getImageId());
                     return resizedImageRepository.save(resizedImage)
                             .then(Mono.just(true));
-                });
-    }
-
-    public Mono<Boolean> resizeAndSaveOriginalImage(ImageDto imageDto, String sessionKey) {
-        return getImageDimensions(imageDto.base64())
-                .flatMap(dimensions -> saveOriginalImage(imageDto,dimensions))
-                .flatMap(savedOriginalImage -> resizeAndSaveResizedImage(imageDto, sessionKey,savedOriginalImage))
-                .onErrorResume(e -> {
-                    e.printStackTrace();
-                    return Mono.just(false);
                 });
     }
 

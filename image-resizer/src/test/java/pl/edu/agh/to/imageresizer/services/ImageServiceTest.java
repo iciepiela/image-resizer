@@ -32,9 +32,9 @@ public class ImageServiceTest {
 
         // when and then
         StepVerifier.create(imageService.getAllResizedImages())
-                .expectNextMatches(image -> compareImages(resizedImages.get(0), image))
-                .expectNextMatches(image -> compareImages(resizedImages.get(1), image))
-                .expectNextMatches(image -> compareImages(resizedImages.get(2), image))
+                .expectNextMatches(image -> resizedImages.get(0).equals(image))
+                .expectNextMatches(image -> resizedImages.get(1).equals(image))
+                .expectNextMatches(image -> resizedImages.get(2).equals(image))
                 .expectComplete()
                 .verify();
     }
@@ -57,9 +57,9 @@ public class ImageServiceTest {
         ImageService imageService = new ImageService(originalImageRepository, resizedImageRepository, imageResizer);
         // when and then
         StepVerifier.create(imageService.getResizedImagesForSessionKey(sessionKey))
-                .expectNextMatches(image -> compareImages(resizedImages.get(0), image))
-                .expectNextMatches(image -> compareImages(resizedImages.get(1), image))
-                .expectNextMatches(image -> compareImages(resizedImages.get(2), image))
+                .expectNextMatches(image -> resizedImages.get(0).equals(image))
+                .expectNextMatches(image -> resizedImages.get(1).equals(image))
+                .expectNextMatches(image -> resizedImages.get(2).equals(image))
                 .expectComplete()
                 .verify();
     }
@@ -130,11 +130,5 @@ public class ImageServiceTest {
 
         Mockito.verifyNoMoreInteractions(originalImageRepository);
         Mockito.verifyNoMoreInteractions(resizedImageRepository);
-    }
-
-    private boolean compareImages(ResizedImage resizedImage, ImageDto imageDto) {
-        return resizedImage.getImageKey().equals(imageDto.imageKey()) &&
-                resizedImage.getBase64().equals(imageDto.base64()) &&
-                resizedImage.getName().equals(imageDto.name());
     }
 }
