@@ -98,5 +98,42 @@ które zuploadował/załadował z bazy.
 - [x] Usunąć Lomboka
 - [x] Uporządkować ImageService i przenieść ImageDto
 - [x] Usunąć packmana w ImageService
-- [] Dodać placeholdery ???
-- [] Naprawić asynchroniczność
+- [x] Dodać placeholdery ???
+- [?] Naprawić asynchroniczność
+
+## [20.12.2024] Milestone 1 - review fix
+### Schemat bazy danych
+Schemat bazy danych nie uległ zmianie.
+### Diagram klas backend
+Nie dodawaliśmy ani nie usuwaliśmy żadnych klas, jedynie zastosowaliśmy się do 
+sugestii z code review: typy kopertowe zamieniliśmy na prymitywne, ImageDto zamieniliśmy 
+na rekord (w przypadku OriginalImage oraz ResizedImage nie było to możliwe, 
+ponieważ  rekordy nie mogą być @Entity). Ponadto przenieśliśmy tworzenie ImageDto bezpośrednio do ImageControllera 
+i zrobiliśmy drobny refactor kodu, izolując odpowiednie metody. W wyniku tych zmian należało też poprawić testy.
+
+Obecnie diagram klas wygląda następująco:    
+![class_diagram](images/class_diagram_20_12_2024.png)    
+
+### Frontend
+Zmiany dotyczyły głównie EventSource i reaktywnego odbierania response - opisane w sekcji `Flow`
+
+### Flow
+Dużym wyzwaniem było doprowadzenie endpointów do działania w pełni rekatywnie - głównie spowodowane brakiem odpowiednich
+narzędzi po stronie frontendu, co zmusiło nas do poszukiwania alternatywnych rozwiązań w backendzie.
+Jednym z pomysłów było wykorzystanie mechanizmu Sink z biblioteki Reactor, jednak powodowało to znaczne
+opóźnienia w przetwarzaniu obrazków (branch `milestone1_fix_async`). Innym pomysłem było zwracanie w requeście POST /upload od razu zmniejszonych obrazków,
+jednak tu pojawił się problem z odbiorem response reaktywnie na frontendzie - zastosowaliśmy rozwiązanie z wykorzystaniem
+fetch oraz reader, było ono jednak niezbyt eleganckie, gdyż wymagało parsowania stringów i było reaktywne jedynie jeśli
+obrazki "spływały" pojedynczo z backendu - w przeciwnym razie reader czytał tekst zawierający response
+dla kilku obrazków na raz i dalsze parsowanie i przetwarzanie odbywało się już sekwencyjnie (branch `milestone1_fix_front`).
+Obecne rozwiązanie opiera się na oryginalnym: zwracamy z POST /upload jedynie sessionKey, z tym że robimy to od razu,
+nie czekając aż obrazki zostaną przetworzone i zapisane do bazy.
+Od razu też frontend wysyła GET /resized z otrzymanym sessionKey. Korzystamy tutaj tak jak poprzednio z EventSource,
+jednak zamykamy go dopiero kiedy upewnimy się, że otrzymaliśmy wszystkie obrazki - zostanie więc wysłanych wiele requestów
+zanim zakończymy nasłuchiwanie. Takie działanie jest konieczne, ponieważ w pierwszym response 
+możemy nie dostać wszystkich obrazków (gdyż jeszcze się liczą/są zapisywane do bazy). 
+
+### Dodatkowe informacje
+Zlikwidowaliśmy przechowywanie obrazków w localStorage, gdyż okazało się, 
+że dla dużych zbiorów obrazków powodowało to problemy pamięciowe, przez co placeholdery się nie pokazywały.
+
