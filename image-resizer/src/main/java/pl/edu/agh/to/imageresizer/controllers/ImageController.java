@@ -11,6 +11,7 @@ import pl.edu.agh.to.imageresizer.dto.ImageDto;
 import pl.edu.agh.to.imageresizer.services.ImageService;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.List;
 
@@ -48,6 +49,7 @@ public class ImageController {
                         resizedImage.getWidth(),
                         resizedImage.getHeight()
                 ))
+                .doOnNext(image-> logger.info(image.toString()))
                 .concatWith(Flux.just(new ImageDto(COMPLETE_REQUEST, COMPLETE_REQUEST, COMPLETE_REQUEST, 0, 0))
                         .delayElements(java.time.Duration.ofSeconds(1)))
                 .map(element -> ResponseEntity.ok().body(element));
@@ -71,13 +73,12 @@ public class ImageController {
     @PostMapping(value = "/upload", produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<ResponseEntity<String>> uploadImages(@RequestBody List<ImageDto> images, HttpSession httpSession) {
         String sessionKey = httpSession.getId();
-        return Flux.fromIterable(images)
+        Flux.fromIterable(images)
                 .flatMap(image -> imageService.resizeAndSaveOriginalImage(image, sessionKey))
-                .then(Mono.just(ResponseEntity.ok(sessionKey)))
-                .onErrorResume(e -> {
-                    e.printStackTrace();
-                    return Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null));
-                });
+                .doOnError(e -> logger.error("Error during image processing", e))
+                .subscribeOn(Schedulers.boundedElastic())
+                .subscribe();
 
+        return Mono.just(ResponseEntity.status(HttpStatus.OK).body(sessionKey));
     }
 }
