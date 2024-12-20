@@ -1,10 +1,10 @@
 package pl.edu.agh.to.imageresizer.services;
 
-import lombok.AllArgsConstructor;
 import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Service;
-import pl.edu.agh.to.imageresizer.model.ImageDto;
+import pl.edu.agh.to.imageresizer.dto.ImageDto;
 import pl.edu.agh.to.imageresizer.model.OriginalImage;
+import pl.edu.agh.to.imageresizer.model.ResizedImage;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -14,49 +14,54 @@ import java.io.ByteArrayInputStream;
 import java.time.Duration;
 
 @Service
-@AllArgsConstructor
 public class ImageService {
     private final OriginalImageRepository originalImageRepository;
     private final ResizedImageRepository resizedImageRepository;
     private final ImageResizer imageResizer;
 
-    public Flux<ImageDto> getAllResizedImages() {
-        return resizedImageRepository.findAll()
-                .map(el -> new ImageDto(el.getImageKey(), el.getName(), el.getBase64(), el.getWidth(), el.getHeight()))
-                .delayElements(Duration.ofSeconds(1));
+    public ImageService(OriginalImageRepository originalImageRepository, ResizedImageRepository resizedImageRepository, ImageResizer imageResizer) {
+        this.originalImageRepository = originalImageRepository;
+        this.resizedImageRepository = resizedImageRepository;
+        this.imageResizer = imageResizer;
     }
 
-    public Flux<ImageDto> getResizedImagesForSessionKey(String sessionKey) {
+    public Flux<ResizedImage> getAllResizedImages() {
+        return resizedImageRepository.findAll();
+    }
+
+    public Flux<ResizedImage> getResizedImagesForSessionKey(String sessionKey) {
         return Flux.just(sessionKey)
                 .flatMap(resizedImageRepository::findResizedImagesBySessionKey)
-                .map(el -> new ImageDto(el.getImageKey(), el.getName(), el.getBase64(), el.getWidth(), el.getHeight()))
                 .delayElements(Duration.ofSeconds(1));
     }
 
-    public Mono<ImageDto> getOriginalImage(String key) {
+    public Mono<OriginalImage> getOriginalImage(String key) {
         return resizedImageRepository.findResizedImageByImageKey(key)
                 .flatMap(image -> originalImageRepository.findById(image.getOriginalImageId()))
-                .map(el -> new ImageDto(null, el.getName(), el.getBase64(), el.getWidth(), el.getHeight()))
                 .delayElement(Duration.ofSeconds(1));
     }
 
     public Mono<Boolean> resizeAndSaveOriginalImage(ImageDto imageDto, String sessionKey) {
-        return getImageDimensions(imageDto.getBase64())
-                .flatMap(dimensions -> {
-                    OriginalImage originalImage = new OriginalImage(imageDto.getName(), imageDto.getBase64(), dimensions.getFirst(), dimensions.getSecond());
-                    return originalImageRepository.save(originalImage)
-                            .flatMap(savedOriginalImage ->
-                                    imageResizer.resize(imageDto, sessionKey)
-                                            .flatMap(resizedImage -> {
-                                                resizedImage.setOriginalImageId(savedOriginalImage.getImageId());
-                                                return resizedImageRepository.save(resizedImage)
-                                                        .then(Mono.just(true));
-                                            })
-                            );
-                })
+        return getImageDimensions(imageDto.base64())
+                .flatMap(dimensions -> saveOriginalImage(imageDto, dimensions))
+                .flatMap(savedOriginalImage -> resizeAndSaveResizedImage(imageDto, sessionKey, savedOriginalImage))
                 .onErrorResume(e -> {
                     e.printStackTrace();
                     return Mono.just(false);
+                });
+    }
+
+    private Mono<OriginalImage> saveOriginalImage(ImageDto imageDto, Pair<Integer, Integer> dimensions) {
+        OriginalImage originalImage = new OriginalImage(imageDto.name(), imageDto.base64(), dimensions.getFirst(), dimensions.getSecond());
+        return originalImageRepository.save(originalImage);
+    }
+
+    private Mono<Boolean> resizeAndSaveResizedImage(ImageDto imageDto, String sessionKey, OriginalImage savedOriginalImage) {
+        return imageResizer.resize(imageDto, sessionKey)
+                .flatMap(resizedImage -> {
+                    resizedImage.setOriginalImageId(savedOriginalImage.getImageId());
+                    return resizedImageRepository.save(resizedImage)
+                            .then(Mono.just(true));
                 });
     }
 

@@ -12,13 +12,13 @@ import org.springframework.data.relational.core.mapping.Table;
 @Table(name = "original_images")
 public class OriginalImage {
     @Id
-    private Long imageId;
+    private long imageId;
     private String name;
     private String base64;
-    private Integer width;
-    private Integer height;
+    private int width;
+    private int height;
 
-    public OriginalImage(String name, String base64, Integer width, Integer height) {
+    public OriginalImage(String name, String base64, int width, int height) {
         this.name = name;
         this.base64 = base64;
         this.width = width;

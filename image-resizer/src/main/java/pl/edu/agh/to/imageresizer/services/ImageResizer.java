@@ -1,7 +1,7 @@
 package pl.edu.agh.to.imageresizer.services;
 
 import org.springframework.stereotype.Service;
-import pl.edu.agh.to.imageresizer.model.ImageDto;
+import pl.edu.agh.to.imageresizer.dto.ImageDto;
 import pl.edu.agh.to.imageresizer.model.ResizedImage;
 import reactor.core.publisher.Mono;
 
@@ -18,10 +18,10 @@ public class ImageResizer {
 
     public Mono<ResizedImage> resize(ImageDto imageDto, String sessionKey) {
         return Mono.fromCallable(() -> {
-            BufferedImage originalImage = getOriginalImage(imageDto.getBase64());
-            String resizedBase64 = getResizedBase64(originalImage, imageDto.getBase64());
+            BufferedImage originalImage = getOriginalImage(imageDto.base64());
+            String resizedBase64 = getResizedBase64(originalImage, imageDto.base64());
 
-            return new ResizedImage(imageDto.getImageKey(), imageDto.getName(), resizedBase64, sessionKey, WIDTH, HEIGHT);
+            return new ResizedImage(imageDto.imageKey(), imageDto.name(), resizedBase64, sessionKey, WIDTH, HEIGHT);
         });
     }
 

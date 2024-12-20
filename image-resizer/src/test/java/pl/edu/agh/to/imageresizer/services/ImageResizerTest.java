@@ -1,7 +1,7 @@
 package pl.edu.agh.to.imageresizer.services;
 
 import org.junit.jupiter.api.Test;
-import pl.edu.agh.to.imageresizer.model.ImageDto;
+import pl.edu.agh.to.imageresizer.dto.ImageDto;
 import reactor.test.StepVerifier;
 
 public class ImageResizerTest {
@@ -16,7 +16,7 @@ public class ImageResizerTest {
 
         //when and then
         StepVerifier.create(imageResizer.resize(imageDto, sessionKey))
-                .expectNextMatches(image -> image.getBase64().equals(resizedBase64) && image.getWidth().equals(200) && image.getHeight().equals(200))
+                .expectNextMatches(image -> image.getBase64().equals(resizedBase64) && image.getWidth()==200 && image.getHeight()==200)
                 .expectComplete()
                 .verify();
 

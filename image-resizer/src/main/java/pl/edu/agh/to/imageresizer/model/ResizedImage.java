@@ -14,15 +14,15 @@ import org.springframework.data.relational.core.mapping.Table;
 @Table(name = "resized_images")
 public class ResizedImage {
     @Id
-    private Long imageId;
+    private long imageId;
     @Column("original_image")
-    private Long originalImageId;
+    private long originalImageId;
     private String imageKey;
     private String name;
     private String base64;
     private String sessionKey;
-    private Integer width;
-    private Integer height;
+    private int width;
+    private int height;
 
     public ResizedImage(String imageKey, String name, String base64, String sessionKey, Integer width, Integer height) {
         this.imageKey = imageKey;

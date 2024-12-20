@@ -3,7 +3,7 @@ package pl.edu.agh.to.imageresizer.services;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
-import pl.edu.agh.to.imageresizer.model.ImageDto;
+import pl.edu.agh.to.imageresizer.dto.ImageDto;
 import pl.edu.agh.to.imageresizer.model.OriginalImage;
 import pl.edu.agh.to.imageresizer.model.ResizedImage;
 import reactor.core.publisher.Flux;
@@ -32,9 +32,9 @@ public class ImageServiceTest {
 
         // when and then
         StepVerifier.create(imageService.getAllResizedImages())
-                .expectNextMatches(image -> compareImages(resizedImages.get(0), image))
-                .expectNextMatches(image -> compareImages(resizedImages.get(1), image))
-                .expectNextMatches(image -> compareImages(resizedImages.get(2), image))
+                .expectNextMatches(image -> resizedImages.get(0).equals(image))
+                .expectNextMatches(image -> resizedImages.get(1).equals(image))
+                .expectNextMatches(image -> resizedImages.get(2).equals(image))
                 .expectComplete()
                 .verify();
     }
@@ -57,9 +57,9 @@ public class ImageServiceTest {
         ImageService imageService = new ImageService(originalImageRepository, resizedImageRepository, imageResizer);
         // when and then
         StepVerifier.create(imageService.getResizedImagesForSessionKey(sessionKey))
-                .expectNextMatches(image -> compareImages(resizedImages.get(0), image))
-                .expectNextMatches(image -> compareImages(resizedImages.get(1), image))
-                .expectNextMatches(image -> compareImages(resizedImages.get(2), image))
+                .expectNextMatches(image -> resizedImages.get(0).equals(image))
+                .expectNextMatches(image -> resizedImages.get(1).equals(image))
+                .expectNextMatches(image -> resizedImages.get(2).equals(image))
                 .expectComplete()
                 .verify();
     }
@@ -130,11 +130,5 @@ public class ImageServiceTest {
 
         Mockito.verifyNoMoreInteractions(originalImageRepository);
         Mockito.verifyNoMoreInteractions(resizedImageRepository);
-    }
-
-    private boolean compareImages(ResizedImage resizedImage, ImageDto imageDto) {
-        return resizedImage.getImageKey().equals(imageDto.getImageKey()) &&
-                resizedImage.getBase64().equals(imageDto.getBase64()) &&
-                resizedImage.getName().equals(imageDto.getName());
     }
 }

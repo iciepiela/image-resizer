@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { fromEvent, takeWhile } from "rxjs";
+import { fromEvent } from "rxjs";
 import { map } from "rxjs/operators";
 import { extractZip } from "../ImageUtils";
 import Button from "@mui/material/Button";
@@ -15,51 +15,42 @@ const ImageGrid = () => {
   const COMPLETE_REQUEST = "COMPLETE_REQUEST";
 
   useEffect(() => {
-    const savedImages = localStorage.getItem("images");
-    if (savedImages) {
-      setImages(JSON.parse(savedImages));
-    }
     if (sessionKey) {
-      loadPhotos();
+      loadPhotos(false, sessionKey);
     }
   }, [sessionKey]);
 
-  useEffect(() => {
-    if (images.length > 0) {
-      localStorage.setItem("images", JSON.stringify(images));
-    }
-  }, [images]);
 
-  const loadPhotos = (all) => {
+  const loadPhotos = (all, sessionKey) => {
     console.log("Loading photos...");
     const url = all
       ? `http://localhost:8080/images/resized/all`
-      : `http://localhost:8080/images/resized?sessionKey=${sessionKey}`;
-
+      : `http://localhost:8080/images/resized?sessionKey=${sessionKey.sessionKey}`;
     const eventSource = new EventSource(url);
+    const imageSet = new Set();
+    const imageCount = sessionKey.imageCount;
 
     const imageStream$ = fromEvent(eventSource, "message").pipe(
       map((event) => {
         const parsedData = JSON.parse(event.data);
         return parsedData.body;
-      }),
-      takeWhile(
-        (imageData) =>
-          imageData.name !== COMPLETE_REQUEST ||
-          imageData.base64 !== COMPLETE_REQUEST,
-        true,
-      ),
+      })
     );
 
     const subscription = imageStream$.subscribe({
       next: (imageData) => {
+
         if (
           imageData.name === COMPLETE_REQUEST &&
-          imageData.base64 === COMPLETE_REQUEST
+          imageData.base64 === COMPLETE_REQUEST && all
         ) {
-          console.log("ended");
+          console.log("ended all");
           eventSource.close();
-        } else {
+        } else if (
+          imageData.name != COMPLETE_REQUEST &&
+          imageData.base64 != COMPLETE_REQUEST
+        ) {
+
           const newImage = {
             base64: `data:image/jpg;base64,${imageData.base64}`,
             name: imageData.name,
@@ -68,22 +59,34 @@ const ImageGrid = () => {
             height: imageData.height,
             loaded: true,
           };
-          if (all) {
-            setImages((prevImages) =>
-              prevImages.some((image) => image.imageKey === newImage.imageKey)
-                ? prevImages.map((image) => image)
-                : [...prevImages, newImage],
+
+          setImages((prevImages) => {
+            const imageExists = prevImages.some(
+              (image) => image.imageKey === newImage.imageKey && image.loaded === true
             );
-          } else {
-            setImages((prevImages) =>
-              prevImages.some((image) => image.imageKey === newImage.imageKey)
+
+            if (!imageExists) {
+              const newImages = prevImages.some((image) => image.imageKey === newImage.imageKey)
                 ? prevImages.map((image) =>
-                    image.imageKey === newImage.imageKey ? newImage : image,
-                  )
-                : [...prevImages, newImage],
-            );
+                  image.imageKey === newImage.imageKey ? newImage : image,
+                ) : [...prevImages, newImage];
+
+
+              return newImages;
+            }
+
+            return prevImages;
+          });
+
+          imageSet.add(newImage.imageKey);
+          if (
+            imageSet.size >= imageCount && !all
+          ) {
+            console.log(sessionKey.sessionKey + ": ended", imageSet);
+            eventSource.close();
           }
         }
+
       },
       error: (err) => {
         console.error("Error receiving image data:", err);
@@ -94,6 +97,7 @@ const ImageGrid = () => {
     });
 
     return () => {
+      console.log("closing")
       eventSource.close();
       subscription.unsubscribe();
     };
@@ -107,13 +111,14 @@ const ImageGrid = () => {
       name: image.name,
       base64: image.base64,
     }));
+    const imageCount = preparedImages.length;
 
     try {
       const response = await uploadImagesToBackend(preparedImages);
 
       if (response) {
         console.log("All photos uploaded successfully.");
-        setSessionKey(response);
+        setSessionKey({ sessionKey: response, imageCount: imageCount });
       } else {
         console.log("Failed to upload photos.");
       }
@@ -196,7 +201,7 @@ const ImageGrid = () => {
   return (
     <div className="main_container">
       <div className="top-bar">
-        <Button variant="outlined" onClick={loadPhotos}>
+        <Button variant="outlined" onClick={() => loadPhotos(true, { sessionKey: null, imageCount: 0 })}>
           Load
         </Button>
         <Button
