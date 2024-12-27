@@ -137,3 +137,10 @@ możemy nie dostać wszystkich obrazków (gdyż jeszcze się liczą/są zapisywa
 Zlikwidowaliśmy przechowywanie obrazków w localStorage, gdyż okazało się, 
 że dla dużych zbiorów obrazków powodowało to problemy pamięciowe, przez co placeholdery się nie pokazywały.
 
+
+## [03.01.2025] Milestone 2
+
+### TODO:
+- [x] Zmiany rozmiarów miniatur
+- [x] Możliwość przełączania
+- [] Odporność na awarie

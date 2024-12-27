@@ -15,10 +15,20 @@ CREATE TABLE IF NOT EXISTS resized_images
     original_image BIGINT,
     image_key      VARCHAR(255),
     session_key      VARCHAR(255),
-    width INTEGER,
-    height INTEGER,
+    
+    widthSmall     INTEGER,
+    heightSmall    INTEGER,
+    base64Small    TEXT,
+
+    widthMedium    INTEGER,
+    heightMedium   INTEGER,
+    base64Medium   TEXT,
+
+    widthLarge     INTEGER,
+    heightLarge    INTEGER,
+    base64Large    TEXT,
+
     name          VARCHAR(255),
-    base64        TEXT,
 
     CONSTRAINT fk_original_image FOREIGN KEY (original_image)
         REFERENCES original_images (image_id)

@@ -13,16 +13,24 @@ import java.io.IOException;
 
 @Service
 public class ImageResizer {
-    private static final int WIDTH = 200;
-    private static final int HEIGHT = 200;
+    private static final int SMALL_WIDTH = 200;
+    private static final int SMALL_HEIGHT = 200;
+    private static final int MEDIUM_WIDTH = 400;
+    private static final int MEDIUM_HEIGHT = 400;
+    private static final int LARGE_WIDTH = 800;
+    private static final int LARGE_HEIGHT = 800;
 
     public Mono<ResizedImage> resize(ImageDto imageDto, String sessionKey) {
         return Mono.fromCallable(() -> {
             BufferedImage originalImage = getOriginalImage(imageDto.base64());
-            String resizedBase64 = getResizedBase64(originalImage, imageDto.base64());
+            String resizedBase64small = getResizedBase64(originalImage, imageDto.base64(), SMALL_WIDTH, SMALL_HEIGHT);
+            String resizedBase64medium = getResizedBase64(originalImage, imageDto.base64(), MEDIUM_WIDTH, MEDIUM_HEIGHT);
+            String resizedBase64large = getResizedBase64(originalImage, imageDto.base64(), LARGE_WIDTH, LARGE_HEIGHT);
 
-            return new ResizedImage(imageDto.imageKey(), imageDto.name(), resizedBase64, sessionKey, WIDTH, HEIGHT);
-        });
+            return new ResizedImage(imageDto.imageKey(), imageDto.name(),sessionKey,
+                    SMALL_WIDTH, SMALL_HEIGHT, resizedBase64small,
+                    MEDIUM_WIDTH, MEDIUM_HEIGHT, resizedBase64medium,
+                    LARGE_WIDTH, LARGE_HEIGHT, resizedBase64large);});
     }
 
     private BufferedImage getOriginalImage(String base64Data) throws IOException {
@@ -31,10 +39,10 @@ public class ImageResizer {
         return ImageIO.read(inputStream);
     }
 
-    private String getResizedBase64(BufferedImage originalImage, String base64Data) throws IOException {
-        BufferedImage resizedImage = new BufferedImage(WIDTH, HEIGHT, originalImage.getType());
-        resizedImage.getGraphics().drawImage(originalImage, 0, 0, 200, 200, null);
-
+    private String getResizedBase64(BufferedImage originalImage, String base64Data,int width, int height) throws IOException {
+        BufferedImage resizedImage = new BufferedImage(width, height, originalImage.getType());
+        resizedImage.getGraphics().drawImage(originalImage, 0, 0, width, height, null);
+        System.out.println(width + " " + height);
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         ImageIO.write(resizedImage, getFormatName(base64Data), outputStream);
         byte[] resizedImageBytes = outputStream.toByteArray();

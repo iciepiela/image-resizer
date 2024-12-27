@@ -8,6 +8,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import pl.edu.agh.to.imageresizer.dto.ImageDto;
+import pl.edu.agh.to.imageresizer.model.ImageSize;
 import pl.edu.agh.to.imageresizer.model.ResizedImage;
 import pl.edu.agh.to.imageresizer.services.ImageService;
 import reactor.core.publisher.Flux;
@@ -41,9 +42,9 @@ public class ImageController {
     }
 
     @GetMapping(value = "/resized", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<ResponseEntity<ImageDto>> getImagesBySessionKey(@RequestParam String sessionKey) {
+    public Flux<ResponseEntity<ImageDto>> getImagesBySessionKey(@RequestParam String sessionKey,@RequestParam String sizeString) {
         return imageService.getResizedImagesForSessionKey(sessionKey)
-                .map(this::convertToImageDto)
+                .map(resizedImage -> convertToImageDto(resizedImage, ImageSize.valueOf(sizeString.toUpperCase())))
                 .doOnNext(image -> logger.info(image.toString()))
                 .concatWith(Flux.just(new ImageDto(COMPLETE_REQUEST, COMPLETE_REQUEST, COMPLETE_REQUEST, 0, 0))
                         .delayElements(java.time.Duration.ofSeconds(1)))
@@ -51,9 +52,12 @@ public class ImageController {
     }
 
     @GetMapping(value = "/resized/all", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<ResponseEntity<ImageDto>> getAllImages() {
+    public Flux<ResponseEntity<ImageDto>> getAllImages(@RequestParam String sizeString) {
+        ImageSize size = ImageSize.valueOf(sizeString.toUpperCase());
+        logger.info("Getting all images in size: {}", size);
         return imageService.getAllResizedImages()
-                .map(this::convertToImageDto)
+                .map(resizedImage -> convertToImageDto(resizedImage, size))
+                .doOnNext(image -> logger.info(image.toString()))
                 .concatWith(Flux.just(new ImageDto(COMPLETE_REQUEST, COMPLETE_REQUEST, COMPLETE_REQUEST, 0, 0))
                         .delayElements(java.time.Duration.ofSeconds(1)))
                 .map(element -> ResponseEntity.ok().body(element));
@@ -71,13 +75,13 @@ public class ImageController {
         return Mono.just(ResponseEntity.status(HttpStatus.OK).body(sessionKey));
     }
 
-    private ImageDto convertToImageDto(ResizedImage resizedImage) {
+    private ImageDto convertToImageDto(ResizedImage resizedImage, ImageSize size) {
         return new ImageDto(
                 resizedImage.getImageKey(),
                 resizedImage.getName(),
-                resizedImage.getBase64(),
-                resizedImage.getWidth(),
-                resizedImage.getHeight()
+                resizedImage.getBase64(size),
+                resizedImage.getWidth(size),
+                resizedImage.getHeight(size)
         );
     }
 }

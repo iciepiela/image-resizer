@@ -44,7 +44,7 @@ public class ImageService {
     public Mono<Boolean> resizeAndSaveOriginalImage(ImageDto imageDto, String sessionKey) {
         return getImageDimensions(imageDto.base64())
                 .flatMap(dimensions -> saveOriginalImage(imageDto, dimensions))
-                .flatMap(savedOriginalImage -> resizeAndSaveResizedImage(imageDto, sessionKey, savedOriginalImage))
+                .flatMap(savedOriginalImage -> resizeImage(imageDto, sessionKey, savedOriginalImage))
                 .onErrorResume(e -> {
                     e.printStackTrace();
                     return Mono.just(false);
@@ -56,7 +56,7 @@ public class ImageService {
         return originalImageRepository.save(originalImage);
     }
 
-    private Mono<Boolean> resizeAndSaveResizedImage(ImageDto imageDto, String sessionKey, OriginalImage savedOriginalImage) {
+    private Mono<Boolean> resizeImage(ImageDto imageDto, String sessionKey, OriginalImage savedOriginalImage) {
         return imageResizer.resize(imageDto, sessionKey)
                 .flatMap(resizedImage -> {
                     resizedImage.setOriginalImageId(savedOriginalImage.getImageId());
