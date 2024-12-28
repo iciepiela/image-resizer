@@ -19,7 +19,6 @@ type SessionKey = {
   imageCount: number;
 };
 
-
 const ImageGrid: React.FC = () => {
   const [images, setImages] = useState<Image[]>([]);
   const [hoveredImage, setHoveredImage] = useState<string | null>(null);
@@ -27,6 +26,7 @@ const ImageGrid: React.FC = () => {
   const [hoveredImageClicked, setHoveredImageClicked] = useState(false);
   const [sessionKey, setSessionKey] = useState<SessionKey | undefined>();
   const [imageSize, setImageSize] = useState<String>("small");
+  const [notSessionOnly, setNotSessionOnly] = useState<boolean>(false);
 
   const COMPLETE_REQUEST = "COMPLETE_REQUEST";
 
@@ -65,7 +65,6 @@ const ImageGrid: React.FC = () => {
           imageData.name !== COMPLETE_REQUEST &&
           imageData.base64 !== COMPLETE_REQUEST
         ) {
-          console.log("Image size: ", imageData.width, imageData.height);
           const newImage: Image = {
             base64: `data:image/jpg;base64,${imageData.base64}`,
             name: imageData.name,
@@ -215,7 +214,11 @@ const ImageGrid: React.FC = () => {
       <div className="top-bar">
         <Button
           variant="outlined"
-          onClick={() => loadPhotos(true, { sessionKey: null, imageCount: 0 }, imageSize)}
+          onClick={() => {
+            setNotSessionOnly(true);
+            loadPhotos(true, { sessionKey: "all", imageCount: 0 }, imageSize)
+            setSessionKey({sessionKey: "all", imageCount: 0 });
+          }}
         >
           Load
         </Button>
@@ -224,7 +227,9 @@ const ImageGrid: React.FC = () => {
           onClick={() => {
             setImageSize("small");
             setImages([]);
-            loadPhotos(true, { sessionKey: null, imageCount: 0 }, "small");
+            if (sessionKey) {
+              loadPhotos(notSessionOnly, { sessionKey: sessionKey.sessionKey, imageCount: 0 }, "small");
+            }
             }
           }
           className="top-bar-button"
@@ -236,9 +241,10 @@ const ImageGrid: React.FC = () => {
           onClick={() => {
             setImageSize("medium");
             setImages([]);
-            loadPhotos(true, { sessionKey: null, imageCount: 0 }, "medium");
+            if (sessionKey) {
+              loadPhotos(notSessionOnly, { sessionKey: sessionKey.sessionKey, imageCount: 0 }, "medium");
             }
-          }
+          }}
           className="top-bar-button"
         >
           Medium
@@ -248,7 +254,9 @@ const ImageGrid: React.FC = () => {
           onClick={() => {
             setImageSize("large");
             setImages([]);
-            loadPhotos(true, { sessionKey: null, imageCount: 0 }, "large");
+            if (sessionKey) {
+              loadPhotos(notSessionOnly, { sessionKey: sessionKey.sessionKey, imageCount: 0 }, "large");
+            }
           }}
           className="top-bar-button"
         >
@@ -288,8 +296,20 @@ const ImageGrid: React.FC = () => {
                 }}
               />
             ) : (
-              <div className="image-grid-placeholder">
-                <div className="loader"></div>
+              <div 
+              className="image-grid-placeholder"
+                style={{
+                  width: `${imageSize === "small" ? 50 : imageSize === "medium" ? 200 : 300}px`,
+                  height: `${imageSize === "small" ? 50 : imageSize === "medium" ? 200 : 300}px`,
+                }}
+              >
+                <div 
+                className="loader"
+                style={{
+                  width: `${imageSize === "small" ? 12 : imageSize === "medium" ? 50 : 75}px`,
+                  height: `${imageSize === "small" ? 12 : imageSize === "medium" ? 50 : 75}px`,
+                }}
+                ></div>
               </div>
             )}
           </div>
