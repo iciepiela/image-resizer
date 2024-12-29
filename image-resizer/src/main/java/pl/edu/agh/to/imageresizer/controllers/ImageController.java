@@ -43,8 +43,8 @@ public class ImageController {
 
     @GetMapping(value = "/resized", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ResponseEntity<ImageDto>> getImagesBySessionKey(@RequestParam String sessionKey,@RequestParam String sizeString) {
-        return imageService.getResizedImagesForSessionKey(sessionKey)
-                .map(resizedImage -> convertToImageDto(resizedImage, ImageSize.valueOf(sizeString.toUpperCase())))
+        return imageService.getResizedImagesForSessionKey(sessionKey, ImageSize.valueOf(sizeString.toUpperCase()))
+                .map(this::convertToImageDto)
                 .doOnNext(image -> logger.info(image.toString()))
                 .concatWith(Flux.just(new ImageDto(COMPLETE_REQUEST, COMPLETE_REQUEST, COMPLETE_REQUEST, 0, 0))
                         .delayElements(java.time.Duration.ofSeconds(1)))
@@ -56,7 +56,7 @@ public class ImageController {
         ImageSize size = ImageSize.valueOf(sizeString.toUpperCase());
         logger.info("Getting all images in size: {}", size);
         return imageService.getAllResizedImages()
-                .map(resizedImage -> convertToImageDto(resizedImage, size))
+                .map(this::convertToImageDto)
                 .doOnNext(image -> logger.info(image.toString()))
                 .concatWith(Flux.just(new ImageDto(COMPLETE_REQUEST, COMPLETE_REQUEST, COMPLETE_REQUEST, 0, 0))
                         .delayElements(java.time.Duration.ofSeconds(1)))
@@ -75,13 +75,13 @@ public class ImageController {
         return Mono.just(ResponseEntity.status(HttpStatus.OK).body(sessionKey));
     }
 
-    private ImageDto convertToImageDto(ResizedImage resizedImage, ImageSize size) {
+    private ImageDto convertToImageDto(ResizedImage resizedImage) {
         return new ImageDto(
                 resizedImage.getImageKey(),
                 resizedImage.getName(),
-                resizedImage.getBase64(size),
-                resizedImage.getWidth(size),
-                resizedImage.getHeight(size)
+                resizedImage.getBase64(),
+                resizedImage.getWidth(),
+                resizedImage.getHeight()
         );
     }
 }

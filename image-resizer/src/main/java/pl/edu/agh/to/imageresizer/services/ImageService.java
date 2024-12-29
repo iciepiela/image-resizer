@@ -3,6 +3,7 @@ package pl.edu.agh.to.imageresizer.services;
 import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Service;
 import pl.edu.agh.to.imageresizer.dto.ImageDto;
+import pl.edu.agh.to.imageresizer.model.ImageSize;
 import pl.edu.agh.to.imageresizer.model.OriginalImage;
 import pl.edu.agh.to.imageresizer.model.ResizedImage;
 import reactor.core.publisher.Flux;
@@ -29,14 +30,17 @@ public class ImageService {
         return resizedImageRepository.findAll();
     }
 
-    public Flux<ResizedImage> getResizedImagesForSessionKey(String sessionKey) {
+    public Flux<ResizedImage> getResizedImagesForSessionKey(String sessionKey, ImageSize imageSize) {
         return Flux.just(sessionKey)
-                .flatMap(resizedImageRepository::findResizedImagesBySessionKey)
+                .flatMap(key ->
+                        resizedImageRepository.findResizedImagesBySessionKeyAndWidthAndHeight(key,
+                                String.valueOf(imageSize.getWidth()), String.valueOf(imageSize.getHeight())))
                 .delayElements(Duration.ofSeconds(1));
     }
 
     public Mono<OriginalImage> getOriginalImage(String key) {
         return resizedImageRepository.findResizedImageByImageKey(key)
+                .next()
                 .flatMap(image -> originalImageRepository.findById(image.getOriginalImageId()))
                 .delayElement(Duration.ofSeconds(1));
     }
@@ -44,7 +48,8 @@ public class ImageService {
     public Mono<Boolean> resizeAndSaveOriginalImage(ImageDto imageDto, String sessionKey) {
         return getImageDimensions(imageDto.base64())
                 .flatMap(dimensions -> saveOriginalImage(imageDto, dimensions))
-                .flatMap(savedOriginalImage -> resizeImage(imageDto, sessionKey, savedOriginalImage))
+                .flatMap(savedOriginalImage -> resizeImage(imageDto, sessionKey, savedOriginalImage)
+                        .all(result -> result))
                 .onErrorResume(e -> {
                     e.printStackTrace();
                     return Mono.just(false);
@@ -56,7 +61,7 @@ public class ImageService {
         return originalImageRepository.save(originalImage);
     }
 
-    private Mono<Boolean> resizeImage(ImageDto imageDto, String sessionKey, OriginalImage savedOriginalImage) {
+    private Flux<Boolean> resizeImage(ImageDto imageDto, String sessionKey, OriginalImage savedOriginalImage) {
         return imageResizer.resize(imageDto, sessionKey)
                 .flatMap(resizedImage -> {
                     resizedImage.setOriginalImageId(savedOriginalImage.getImageId());

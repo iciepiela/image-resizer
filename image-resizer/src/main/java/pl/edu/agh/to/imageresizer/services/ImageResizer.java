@@ -4,7 +4,7 @@ import org.springframework.stereotype.Service;
 import pl.edu.agh.to.imageresizer.dto.ImageDto;
 import pl.edu.agh.to.imageresizer.model.ImageSize;
 import pl.edu.agh.to.imageresizer.model.ResizedImage;
-import reactor.core.publisher.Mono;
+import reactor.core.publisher.Flux;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -15,18 +15,26 @@ import java.io.IOException;
 @Service
 public class ImageResizer {
 
-    public Mono<ResizedImage> resize(ImageDto imageDto, String sessionKey) {
-        return Mono.fromCallable(() -> {
-            BufferedImage originalImage = getOriginalImage(imageDto.base64());
-            String resizedBase64small = getResizedBase64(originalImage, imageDto.base64(), ImageSize.SMALL.getWidth(), ImageSize.SMALL.getHeight());
-            String resizedBase64medium = getResizedBase64(originalImage, imageDto.base64(), ImageSize.MEDIUM.getWidth(), ImageSize.MEDIUM.getHeight());
-            String resizedBase64large = getResizedBase64(originalImage, imageDto.base64(), ImageSize.LARGE.getWidth(), ImageSize.LARGE.getHeight());
-
-            return new ResizedImage(imageDto.imageKey(), imageDto.name(),sessionKey,
-                    ImageSize.SMALL.getWidth(), ImageSize.SMALL.getHeight(), resizedBase64small,
-                    ImageSize.MEDIUM.getWidth(), ImageSize.MEDIUM.getHeight(), resizedBase64medium,
-                    ImageSize.LARGE.getWidth(), ImageSize.LARGE.getHeight(), resizedBase64large);
-        });
+    public Flux<ResizedImage> resize(ImageDto imageDto, String sessionKey) {
+        return Flux.just(ImageSize.values())
+                .map(imageSize -> {
+                    try {
+                        return new ResizedImage(
+                                imageDto.imageKey(),
+                                imageDto.name(),
+                                getResizedBase64(imageDto.base64(), imageSize.getWidth(), imageSize.getHeight()),
+                                sessionKey,
+                                imageSize.getWidth(),
+                                imageSize.getHeight()
+                        );
+                    } catch (IOException e) {
+                        throw new RuntimeException("Failed to resize image: " + e.getMessage(), e);
+                    }
+                })
+                .onErrorResume(e -> {
+                    System.err.println("Error during resizing: " + e.getMessage());
+                    return Flux.error(new RuntimeException("Image resizing failed for session " + sessionKey, e));
+                });
     }
 
     private BufferedImage getOriginalImage(String base64Data) throws IOException {
@@ -35,7 +43,8 @@ public class ImageResizer {
         return ImageIO.read(inputStream);
     }
 
-    private String getResizedBase64(BufferedImage originalImage, String base64Data,int width, int height) throws IOException {
+    private String getResizedBase64(String base64Data, int width, int height) throws IOException {
+        BufferedImage originalImage = getOriginalImage(base64Data);
         BufferedImage resizedImage = new BufferedImage(width, height, originalImage.getType());
         resizedImage.getGraphics().drawImage(originalImage, 0, 0, width, height, null);
         System.out.println(width + " " + height);

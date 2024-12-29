@@ -44,6 +44,7 @@ const ImageGrid: React.FC = () => {
     const eventSource = new EventSource(url);
     const imageSet = new Set<string>();
     const imageCount = sessionKey.imageCount;
+    console.log(sessionKey);
 
     const imageStream$ = fromEvent<MessageEvent>(eventSource, "message").pipe(
       map((event) => {
@@ -228,11 +229,14 @@ const ImageGrid: React.FC = () => {
             setImageSize("small");
             setImages([]);
             if (sessionKey) {
-              loadPhotos(notSessionOnly, { sessionKey: sessionKey.sessionKey, imageCount: 0 }, "small");
+              loadPhotos(notSessionOnly, sessionKey, "small");
             }
             }
           }
           className="top-bar-button"
+          sx={{
+            backgroundColor: imageSize === "small" ? "#d0e0e0" : "transparent"
+          }}
         >
           Small
         </Button>
@@ -242,10 +246,13 @@ const ImageGrid: React.FC = () => {
             setImageSize("medium");
             setImages([]);
             if (sessionKey) {
-              loadPhotos(notSessionOnly, { sessionKey: sessionKey.sessionKey, imageCount: 0 }, "medium");
+              loadPhotos(notSessionOnly, sessionKey, "medium");
             }
           }}
           className="top-bar-button"
+          sx={{
+            backgroundColor: imageSize === "medium" ? "#d0e0e0" : "transparent"
+          }}
         >
           Medium
         </Button>
@@ -255,10 +262,13 @@ const ImageGrid: React.FC = () => {
             setImageSize("large");
             setImages([]);
             if (sessionKey) {
-              loadPhotos(notSessionOnly, { sessionKey: sessionKey.sessionKey, imageCount: 0 }, "large");
+              loadPhotos(notSessionOnly, sessionKey, "large");
             }
           }}
           className="top-bar-button"
+          sx={{
+            backgroundColor: imageSize === "large" ? "#d0e0e0" : "transparent"
+          }}
         >
           Large
         </Button>

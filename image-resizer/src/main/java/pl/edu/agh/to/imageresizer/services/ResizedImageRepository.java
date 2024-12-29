@@ -6,7 +6,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 public interface ResizedImageRepository extends ReactiveCrudRepository<ResizedImage, Long> {
-    Flux<ResizedImage> findResizedImagesBySessionKey(String key);
+    Flux<ResizedImage> findResizedImagesBySessionKeyAndWidthAndHeight(String key, String width, String height);
 
-    Mono<ResizedImage> findResizedImageByImageKey(String imageKey);
+    Flux<ResizedImage> findResizedImageByImageKey(String imageKey);
 }
