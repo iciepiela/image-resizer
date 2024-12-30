@@ -99,6 +99,12 @@ const ImageGrid: React.FC = () => {
                   ? { ...image, ...newImage } 
                   : image
               );
+
+              const isReplaced = newImages.some((image) => image.imageKey === newImage.imageKey);
+
+              if (!isReplaced) {
+                return [...newImages, newImage];
+              }
           
               return newImages;
             }
