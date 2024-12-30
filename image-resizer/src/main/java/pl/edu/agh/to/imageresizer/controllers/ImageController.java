@@ -47,7 +47,7 @@ public class ImageController {
                 .map(this::convertToImageDto)
                 .doOnNext(image -> logger.info(image.toString()))
                 .concatWith(Flux.just(new ImageDto(COMPLETE_REQUEST, COMPLETE_REQUEST, COMPLETE_REQUEST, 0, 0))
-                        .delayElements(java.time.Duration.ofSeconds(1)))
+                        .delayElements(java.time.Duration.ofMillis(500)))
                 .map(element -> ResponseEntity.ok().body(element));
     }
 
@@ -55,11 +55,11 @@ public class ImageController {
     public Flux<ResponseEntity<ImageDto>> getAllImages(@RequestParam String sizeString) {
         ImageSize size = ImageSize.valueOf(sizeString.toUpperCase());
         logger.info("Getting all images in size: {}", size);
-        return imageService.getAllResizedImages()
+        return imageService.getAllResizedImages(size)
                 .map(this::convertToImageDto)
                 .doOnNext(image -> logger.info(image.toString()))
                 .concatWith(Flux.just(new ImageDto(COMPLETE_REQUEST, COMPLETE_REQUEST, COMPLETE_REQUEST, 0, 0))
-                        .delayElements(java.time.Duration.ofSeconds(1)))
+                        .delayElements(java.time.Duration.ofMillis(500)))
                 .map(element -> ResponseEntity.ok().body(element));
     }
 

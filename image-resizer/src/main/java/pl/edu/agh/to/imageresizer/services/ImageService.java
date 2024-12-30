@@ -26,23 +26,24 @@ public class ImageService {
         this.imageResizer = imageResizer;
     }
 
-    public Flux<ResizedImage> getAllResizedImages() {
-        return resizedImageRepository.findAll();
+    public Flux<ResizedImage> getAllResizedImages(ImageSize imageSize) {
+        return resizedImageRepository.findResizedImagesByWidthAndHeight(imageSize.getWidth(), imageSize.getHeight());
+
     }
 
     public Flux<ResizedImage> getResizedImagesForSessionKey(String sessionKey, ImageSize imageSize) {
         return Flux.just(sessionKey)
                 .flatMap(key ->
                         resizedImageRepository.findResizedImagesBySessionKeyAndWidthAndHeight(key,
-                                String.valueOf(imageSize.getWidth()), String.valueOf(imageSize.getHeight())))
-                .delayElements(Duration.ofSeconds(1));
+                                imageSize.getWidth(), imageSize.getHeight()));
+
     }
 
     public Mono<OriginalImage> getOriginalImage(String key) {
         return resizedImageRepository.findResizedImageByImageKey(key)
                 .next()
                 .flatMap(image -> originalImageRepository.findById(image.getOriginalImageId()))
-                .delayElement(Duration.ofSeconds(1));
+                .delayElement(Duration.ofMillis(500));
     }
 
     public Mono<Boolean> resizeAndSaveOriginalImage(ImageDto imageDto, String sessionKey) {

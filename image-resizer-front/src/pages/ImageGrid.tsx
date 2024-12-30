@@ -26,21 +26,31 @@ const ImageGrid: React.FC = () => {
   const [hoveredImageClicked, setHoveredImageClicked] = useState(false);
   const [sessionKey, setSessionKey] = useState<SessionKey | undefined>();
   const [imageSize, setImageSize] = useState<String>("small");
-  const [notSessionOnly, setNotSessionOnly] = useState<boolean>(false);
+  const [imageSizeInPixels,setImageSizeInPixels] = useState<number>(50);
+  const [sessionOnly, setSessionOnly] = useState<boolean>(true);
 
   const COMPLETE_REQUEST = "COMPLETE_REQUEST";
 
   useEffect(() => {
     if (sessionKey) {
-      loadPhotos(false, sessionKey, imageSize);
+      loadPhotos(sessionOnly, sessionKey, imageSize);
     }
   }, [sessionKey]);
 
-  const loadPhotos = (all: boolean, sessionKey: SessionKey,size: String) => {
+  useEffect(()=> {
+    if(sessionKey){
+      setImageSizeInPixels(imageSize === "small" ? 50 : imageSize === "medium" ? 200 : 300)
+      loadPhotos(false,sessionKey,imageSize)
+    }
+  },[imageSize])
+
+  const loadPhotos = (sessionOnly: boolean, sessionKey: SessionKey,size: String) => {
     console.log("Loading photos...");
-    const url = all
-      ? `http://localhost:8080/images/resized/all?sizeString=${size}`
-      : `http://localhost:8080/images/resized?sessionKey=${sessionKey.sessionKey}&sizeString=${size}`;
+
+    const url = sessionOnly
+      ? `http://localhost:8080/images/resized?sessionKey=${sessionKey.sessionKey}&sizeString=${size}`
+      : `http://localhost:8080/images/resized/all?sizeString=${size}`;
+
     const eventSource = new EventSource(url);
     const imageSet = new Set<string>();
     const imageCount = sessionKey.imageCount;
@@ -58,7 +68,7 @@ const ImageGrid: React.FC = () => {
         if (
           imageData.name === COMPLETE_REQUEST &&
           imageData.base64 === COMPLETE_REQUEST &&
-          all
+          !sessionOnly
         ) {
           console.log("ended all");
           eventSource.close();
@@ -77,16 +87,21 @@ const ImageGrid: React.FC = () => {
 
           setImages((prevImages) => {
             const imageExists = prevImages.some(
-              (image) => image.imageKey === newImage.imageKey && image.loaded === true
+              (image) =>
+                image.imageKey === newImage.imageKey &&
+                image.width === newImage.width &&
+                image.height === newImage.height &&
+                image.loaded === true
             );
-
+          
+          
             if (!imageExists) {
-              const newImages = prevImages.some((image) => image.imageKey === newImage.imageKey)
-                ? prevImages.map((image) =>
-                    image.imageKey === newImage.imageKey ? newImage : image
-                  )
-                : [...prevImages, newImage];
-
+              const newImages = prevImages.map((image) =>
+                image.imageKey === newImage.imageKey
+                  ? { ...image, ...newImage } 
+                  : image
+              );
+          
               return newImages;
             }
 
@@ -94,7 +109,7 @@ const ImageGrid: React.FC = () => {
           });
 
           imageSet.add(newImage.imageKey);
-          if (imageSet.size >= imageCount && !all) {
+          if (imageSet.size >= imageCount && sessionOnly) {
             console.log(sessionKey.sessionKey + ": ended", imageSet);
             eventSource.close();
           }
@@ -130,6 +145,7 @@ const ImageGrid: React.FC = () => {
 
       if (response) {
         console.log("All photos uploaded successfully.");
+        setSessionOnly(true);
         setSessionKey({ sessionKey: response, imageCount: imageCount });
       } else {
         console.log("Failed to upload photos.");
@@ -216,8 +232,7 @@ const ImageGrid: React.FC = () => {
         <Button
           variant="outlined"
           onClick={() => {
-            setNotSessionOnly(true);
-            loadPhotos(true, { sessionKey: "all", imageCount: 0 }, imageSize)
+            setSessionOnly(false);
             setSessionKey({sessionKey: "all", imageCount: 0 });
           }}
         >
@@ -227,10 +242,6 @@ const ImageGrid: React.FC = () => {
           variant="outlined"
           onClick={() => {
             setImageSize("small");
-            setImages([]);
-            if (sessionKey) {
-              loadPhotos(notSessionOnly, sessionKey, "small");
-            }
             }
           }
           className="top-bar-button"
@@ -244,10 +255,6 @@ const ImageGrid: React.FC = () => {
           variant="outlined"
           onClick={() => {
             setImageSize("medium");
-            setImages([]);
-            if (sessionKey) {
-              loadPhotos(notSessionOnly, sessionKey, "medium");
-            }
           }}
           className="top-bar-button"
           sx={{
@@ -260,10 +267,6 @@ const ImageGrid: React.FC = () => {
           variant="outlined"
           onClick={() => {
             setImageSize("large");
-            setImages([]);
-            if (sessionKey) {
-              loadPhotos(notSessionOnly, sessionKey, "large");
-            }
           }}
           className="top-bar-button"
           sx={{
