@@ -42,6 +42,19 @@ const ImageGrid: React.FC = () => {
     }
   },[imageSize])
 
+  const checkServerHealth = async (): Promise<boolean> => {
+    try {
+      const response = await fetch("http://localhost:8080/images/health", {
+        method: "GET",
+      });
+  
+      return response.ok;
+    } catch (error) {
+      console.error("Server health check failed:", error);
+      return false;
+    }
+  };
+
   const loadPhotos = (sessionOnly: boolean, sessionKey: SessionKey,size: String) => {
     console.log("Loading photos...");
 
@@ -158,27 +171,47 @@ const ImageGrid: React.FC = () => {
       console.error("Error uploading photos:", error);
     }
   };
-
-  const uploadImagesToBackend = async (images: any[]) => {
-    try {
-      const response = await fetch("http://localhost:8080/images/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(images),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
+  
+  const uploadImagesToBackend = async (images: any[], retries = 10): Promise<string | null> => {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        const isServerHealthy = await checkServerHealth();
+        if (!isServerHealthy) {
+          console.warn(`Server is unavailable. Attempt ${attempt} of ${retries}. Retrying...`);
+          await new Promise((resolve) => setTimeout(resolve, 2000)); 
+          continue;
+        }
+  
+        const response = await fetch("http://localhost:8080/images/upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(images),
+        });
+  
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+  
+        const responseBody = await response.text();
+        console.log("SessionKey retrieved: ", responseBody);
+        return responseBody;
+  
+      } catch (error) {
+        console.error(`Error during upload attempt ${attempt}:`, error);
+  
+        if (attempt === retries) {
+          console.error("Max retries reached. Upload failed.");
+          throw error;
+        }
+  
+        console.warn(`Retrying upload... (${attempt + 1}/${retries})`);
+        await new Promise((resolve) => setTimeout(resolve, 2000)); 
       }
-
-      const responseBody = await response.text();
-      console.log("SessionKey retrieved: ", responseBody);
-      return responseBody;
-    } catch (error) {
-      console.error("Error during fetch:", error);
-      throw error;
     }
+  
+    return null;
   };
+  
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -192,25 +225,49 @@ const ImageGrid: React.FC = () => {
     }
   };
 
-  const fetchOriginalImage = async (imageKey: string) => {
-    try {
-      const response = await fetch(
-        `http://localhost:8080/images/original?imageKey=${imageKey}`,
-        {
-          method: "GET",
-          headers: { "Content-Type": "application/json" },
+  
+  const fetchOriginalImage = async (imageKey: string, retries = 10): Promise<any | null> => {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        const isServerHealthy = await checkServerHealth();
+        if (!isServerHealthy) {
+          console.warn(`Server is unavailable. Attempt ${attempt} of ${retries}. Retrying...`);
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+          continue;
         }
-      );
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
+  
+        const response = await fetch(
+          `http://localhost:8080/images/original?imageKey=${imageKey}`,
+          {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+  
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+  
+        const imageData = await response.json();
+        console.log("Fetched original image data:", imageData);
+        return imageData;
+  
+      } catch (error) {
+        console.error(`Error fetching image attempt ${attempt}:`, error);
+  
+        if (attempt === retries) {
+          console.error("Max retries reached. Fetch failed.");
+          throw error; 
+        }
+  
+        console.warn(`Retrying fetch... (${attempt + 1}/${retries})`);
+        await new Promise((resolve) => setTimeout(resolve, 2000)); 
       }
-      const imageData = await response.json();
-      return imageData;
-    } catch (error) {
-      console.error("Error fetching original image:", error);
-      return null;
     }
+  
+    return null;
   };
+  
 
   const handleMouseEnter = async (image: Image) => {
     setHoveredImageClicked(true);

@@ -28,6 +28,11 @@ public class ImageController {
         this.imageService = imageService;
     }
 
+    @GetMapping("/health")
+    public ResponseEntity<String> healthCheck() {
+        return ResponseEntity.ok("Server is running");
+    }
+
     @GetMapping(value = "/original", produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<ResponseEntity<ImageDto>> getOriginalImage(@RequestParam String imageKey) {
         return imageService.getOriginalImage(imageKey)
