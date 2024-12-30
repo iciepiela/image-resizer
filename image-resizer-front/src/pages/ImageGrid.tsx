@@ -26,7 +26,6 @@ const ImageGrid: React.FC = () => {
   const [hoveredImageClicked, setHoveredImageClicked] = useState(false);
   const [sessionKey, setSessionKey] = useState<SessionKey | undefined>();
   const [imageSize, setImageSize] = useState<String>("small");
-  const [imageSizeInPixels,setImageSizeInPixels] = useState<number>(50);
   const [sessionOnly, setSessionOnly] = useState<boolean>(true);
 
   const COMPLETE_REQUEST = "COMPLETE_REQUEST";
@@ -39,7 +38,6 @@ const ImageGrid: React.FC = () => {
 
   useEffect(()=> {
     if(sessionKey){
-      setImageSizeInPixels(imageSize === "small" ? 50 : imageSize === "medium" ? 200 : 300)
       loadPhotos(false,sessionKey,imageSize)
     }
   },[imageSize])
