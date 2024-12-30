@@ -39,6 +39,15 @@ public class ImageService {
 
     }
 
+    public Flux<ResizedImage> getResizedImagesByImageKey(String imageKey, ImageSize imageSize) {
+        return Flux.just(imageKey)
+                .flatMap(key ->
+                        resizedImageRepository.findResizedImagesByImageKeyAndWidthAndHeight(key,
+                                imageSize.getWidth(), imageSize.getHeight()));
+
+    }
+
+
     public Mono<OriginalImage> getOriginalImage(String key) {
         return resizedImageRepository.findResizedImageByImageKey(key)
                 .next()

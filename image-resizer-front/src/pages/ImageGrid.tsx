@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { fromEvent } from "rxjs";
+import { fromEvent, from, mergeMap, tap, finalize, catchError, Observable, EMPTY } from "rxjs";
 import { map } from "rxjs/operators";
 import { extractZip } from "../ImageUtils.tsx";
 import Button from "@mui/material/Button";
@@ -36,12 +36,82 @@ const ImageGrid: React.FC = () => {
     }
   }, [sessionKey]);
 
-  useEffect(()=> {
-    if(sessionKey){
-      loadPhotos(false,sessionKey,imageSize)
+  useEffect(() => {
+    if (sessionKey) {
+      loadPhotosByImageKey(imageSize);
     }
-  },[imageSize])
+  }, [imageSize])
 
+  const loadImageByImageKey = (size: String, imageKey: String): Observable<void> => {
+    console.log(imageKey);
+    if (imageKey === null) return EMPTY;
+    const url = `http://localhost:8080/images/resized?imageKey=${imageKey}&sizeString=${size}`;
+    const eventSource = new EventSource(url);
+    const imageSet = new Set<string>();
+
+    return fromEvent<MessageEvent>(eventSource, "message").pipe(
+      map((event) => JSON.parse(event.data).body),
+      tap((imageData: any) => {
+        if (imageData.name !== "COMPLETE_REQUEST" && imageData.base64 !== "COMPLETE_REQUEST") {
+          const newImage: Image = {
+            base64: `data:image/jpg;base64,${imageData.base64}`,
+            name: imageData.name,
+            imageKey: imageData.imageKey,
+            width: imageData.width,
+            height: imageData.height,
+            loaded: true,
+          };
+
+          setImages((prevImages) => {
+            const newImages = prevImages.map((image) =>
+              image.imageKey === newImage.imageKey
+                ? { ...image, ...newImage }
+                : image
+            );
+            return newImages;
+          });
+
+          imageSet.add(newImage.imageKey);
+
+          if (imageSet.size >= 1) {
+            console.log(imageKey + ": ended imageKey", imageSet);
+            eventSource.close();
+          }
+        }
+      }),
+      catchError((err) => {
+        console.error(`Error loading image for key ${imageKey}:`, err);
+        return []; // Handle errors gracefully by completing the stream
+      }),
+      finalize(() => {
+        console.log(`Stream for imageKey ${imageKey} closed`);
+        eventSource.close();
+      })
+    );
+  };
+
+  const loadPhotosByImageKey = (size: String): void => {
+    console.log("Loading photos by imageKey...");
+    console.log(images)
+
+    const imageStream$ = from(images).pipe(
+      mergeMap((image) =>
+        loadImageByImageKey(size, image.imageKey).pipe(
+          catchError((err) => {
+            console.error(`Error processing image key ${image.imageKey}:`, err);
+            return EMPTY;
+          })
+        )
+      ),
+      finalize(() => {
+        console.log("All images processed");
+      })
+    );
+
+    imageStream$.subscribe({
+      complete: () => console.log("All image streams completed"),
+    });
+  };
   const checkServerHealth = async (): Promise<boolean> => {
     try {
       const response = await fetch("http://localhost:8080/images/health", {
@@ -235,7 +305,7 @@ const ImageGrid: React.FC = () => {
           await new Promise((resolve) => setTimeout(resolve, 2000));
           continue;
         }
-  
+
         const response = await fetch(
           `http://localhost:8080/images/original?imageKey=${imageKey}`,
           {

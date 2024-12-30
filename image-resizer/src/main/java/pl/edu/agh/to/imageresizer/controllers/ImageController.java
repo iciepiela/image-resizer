@@ -46,7 +46,7 @@ public class ImageController {
                 .map(element -> ResponseEntity.ok().body(element));
     }
 
-    @GetMapping(value = "/resized", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @GetMapping(value = "/resized", params = {"sessionKey", "sizeString"}, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ResponseEntity<ImageDto>> getImagesBySessionKey(@RequestParam String sessionKey,@RequestParam String sizeString) {
         return imageService.getResizedImagesForSessionKey(sessionKey, ImageSize.valueOf(sizeString.toUpperCase()))
                 .map(this::convertToImageDto)
@@ -61,6 +61,16 @@ public class ImageController {
         ImageSize size = ImageSize.valueOf(sizeString.toUpperCase());
         logger.info("Getting all images in size: {}", size);
         return imageService.getAllResizedImages(size)
+                .map(this::convertToImageDto)
+                .doOnNext(image -> logger.info(image.toString()))
+                .concatWith(Flux.just(new ImageDto(COMPLETE_REQUEST, COMPLETE_REQUEST, COMPLETE_REQUEST, 0, 0))
+                        .delayElements(java.time.Duration.ofMillis(500)))
+                .map(element -> ResponseEntity.ok().body(element));
+    }
+
+    @GetMapping(value = "/resized", params = {"imageKey", "sizeString"}, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ResponseEntity<ImageDto>> getImageByImageKey(@RequestParam String imageKey,@RequestParam String sizeString) {
+        return imageService.getResizedImagesByImageKey(imageKey, ImageSize.valueOf(sizeString.toUpperCase()))
                 .map(this::convertToImageDto)
                 .doOnNext(image -> logger.info(image.toString()))
                 .concatWith(Flux.just(new ImageDto(COMPLETE_REQUEST, COMPLETE_REQUEST, COMPLETE_REQUEST, 0, 0))
