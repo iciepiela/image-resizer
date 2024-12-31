@@ -471,7 +471,7 @@ const ImageGrid: React.FC = () => {
         </Button>
       </div>
       <div className="image-grid">
-        <h1>Photos - click to make it bigger!!!</h1>
+        <h1>Photos - click to make them bigger!!!</h1>
         {images.map((image) => (
           <div
             key={image.imageKey}
