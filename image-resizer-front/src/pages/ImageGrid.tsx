@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { fromEvent, from, mergeMap, tap, finalize, catchError, Observable, EMPTY } from "rxjs";
 import { map } from "rxjs/operators";
 import { extractZip } from "../ImageUtils.tsx";
 import Button from "@mui/material/Button";
 import "./ImageGrid.css";
+import sad from "../sad.png";
 
 type Image = {
   base64: string;
@@ -21,14 +22,16 @@ type SessionKey = {
 
 const ImageGrid: React.FC = () => {
   const [images, setImages] = useState<Image[]>([]);
-  const [hoveredImage, setHoveredImage] = useState<string | null>(null);
+  const [hoveredImage, setHoveredImage] = useState<Image | null>(null);
   const [hoveredImageStyle, setHoveredImageStyle] = useState<React.CSSProperties>({});
   const [hoveredImageClicked, setHoveredImageClicked] = useState(false);
   const [sessionKey, setSessionKey] = useState<SessionKey | undefined>();
   const [imageSize, setImageSize] = useState<String>("small");
   const [sessionOnly, setSessionOnly] = useState<boolean>(true);
+  const [activeSubscriptions, setActiveSubscriptions] = useState<Map<string, EventSource>>(new Map());
 
   const COMPLETE_REQUEST = "COMPLETE_REQUEST";
+  const ERROR = "ERROR";
 
   useEffect(() => {
     if (sessionKey) {
@@ -37,18 +40,34 @@ const ImageGrid: React.FC = () => {
   }, [sessionKey]);
 
   useEffect(() => {
-    if (sessionKey) {
-      loadPhotosByImageKey(imageSize);
-    }
+
+    loadPhotosByImageKey(imageSize);
+
   }, [imageSize])
 
-  const loadImageByImageKey = (size: String, imageKey: String): Observable<void> => {
-    console.log(imageKey);
+  const loadImageByImageKey = (size: String, imageKey: string): Observable<void> => {
     if (imageKey === null) return EMPTY;
-    const url = `http://localhost:8080/images/resized?imageKey=${imageKey}&sizeString=${size}`;
+    const url = `http://localhost:8080/images/resized/by-image-key?imageKey=${imageKey}&sizeString=${size}`;
     const eventSource = new EventSource(url);
     const imageSet = new Set<string>();
 
+    if (activeSubscriptions.get(imageKey)) {
+      const prevEventSource = activeSubscriptions.get(imageKey);
+      console.log(prevEventSource);
+      prevEventSource?.close();
+      setActiveSubscriptions((prev) => {
+        const newMap = new Map(prev);
+        newMap.delete(imageKey);
+
+        return newMap;
+      });
+    }
+    setActiveSubscriptions((prev) => {
+      const newMap = new Map(prev);
+      newMap.set(imageKey, eventSource);
+
+      return newMap;
+    });
     return fromEvent<MessageEvent>(eventSource, "message").pipe(
       map((event) => JSON.parse(event.data).body),
       tap((imageData: any) => {
@@ -63,6 +82,7 @@ const ImageGrid: React.FC = () => {
           };
 
           setImages((prevImages) => {
+            if (size !== imageSize) return prevImages;
             const newImages = prevImages.map((image) =>
               image.imageKey === newImage.imageKey
                 ? { ...image, ...newImage }
@@ -74,14 +94,14 @@ const ImageGrid: React.FC = () => {
           imageSet.add(newImage.imageKey);
 
           if (imageSet.size >= 1) {
-            console.log(imageKey + ": ended imageKey", imageSet);
+            // console.log(imageKey + ": ended imageKey", imageSet);
             eventSource.close();
           }
         }
       }),
       catchError((err) => {
         console.error(`Error loading image for key ${imageKey}:`, err);
-        return []; // Handle errors gracefully by completing the stream
+        return EMPTY;
       }),
       finalize(() => {
         console.log(`Stream for imageKey ${imageKey} closed`);
@@ -93,7 +113,12 @@ const ImageGrid: React.FC = () => {
   const loadPhotosByImageKey = (size: String): void => {
     console.log("Loading photos by imageKey...");
     console.log(images)
-
+    setImages((prevImages) =>
+      prevImages.map((image) => ({
+        ...image,
+        loaded: false,
+      }))
+    );
     const imageStream$ = from(images).pipe(
       mergeMap((image) =>
         loadImageByImageKey(size, image.imageKey).pipe(
@@ -117,7 +142,7 @@ const ImageGrid: React.FC = () => {
       const response = await fetch("http://localhost:8080/images/health", {
         method: "GET",
       });
-  
+
       return response.ok;
     } catch (error) {
       console.error("Server health check failed:", error);
@@ -125,17 +150,39 @@ const ImageGrid: React.FC = () => {
     }
   };
 
-  const loadPhotos = (sessionOnly: boolean, sessionKey: SessionKey,size: String) => {
+  const loadPhotos = (sessionOnly: boolean, sessionKey: SessionKey, size: String) => {
     console.log("Loading photos...");
 
     const url = sessionOnly
-      ? `http://localhost:8080/images/resized?sessionKey=${sessionKey.sessionKey}&sizeString=${size}`
+      ? `http://localhost:8080/images/resized/by-session?sessionKey=${sessionKey.sessionKey}&sizeString=${size}`
       : `http://localhost:8080/images/resized/all?sizeString=${size}`;
 
     const eventSource = new EventSource(url);
     const imageSet = new Set<string>();
     const imageCount = sessionKey.imageCount;
     console.log(sessionKey);
+
+    images.forEach((image) => {
+      const imageKey = image.imageKey;
+      if (activeSubscriptions.get(imageKey)) {
+        const prevEventSource = activeSubscriptions.get(imageKey);
+        console.log(prevEventSource);
+        prevEventSource?.close();
+        setActiveSubscriptions((prev) => {
+          const newMap = new Map(prev);
+          newMap.delete(imageKey);
+
+          return newMap;
+        });
+      }
+      setActiveSubscriptions((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(imageKey, eventSource);
+
+        return newMap;
+      });
+    }
+    );
 
     const imageStream$ = fromEvent<MessageEvent>(eventSource, "message").pipe(
       map((event) => {
@@ -167,6 +214,8 @@ const ImageGrid: React.FC = () => {
           };
 
           setImages((prevImages) => {
+            if (size !== imageSize) return prevImages;
+
             const imageExists = prevImages.some(
               (image) =>
                 image.imageKey === newImage.imageKey &&
@@ -174,12 +223,12 @@ const ImageGrid: React.FC = () => {
                 image.height === newImage.height &&
                 image.loaded === true
             );
-          
-          
+
+
             if (!imageExists) {
               const newImages = prevImages.map((image) =>
                 image.imageKey === newImage.imageKey
-                  ? { ...image, ...newImage } 
+                  ? { ...image, ...newImage }
                   : image
               );
 
@@ -188,7 +237,7 @@ const ImageGrid: React.FC = () => {
               if (!isReplaced) {
                 return [...newImages, newImage];
               }
-          
+
               return newImages;
             }
 
@@ -241,47 +290,47 @@ const ImageGrid: React.FC = () => {
       console.error("Error uploading photos:", error);
     }
   };
-  
+
   const uploadImagesToBackend = async (images: any[], retries = 10): Promise<string | null> => {
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
         const isServerHealthy = await checkServerHealth();
         if (!isServerHealthy) {
           console.warn(`Server is unavailable. Attempt ${attempt} of ${retries}. Retrying...`);
-          await new Promise((resolve) => setTimeout(resolve, 2000)); 
+          await new Promise((resolve) => setTimeout(resolve, 2000));
           continue;
         }
-  
+
         const response = await fetch("http://localhost:8080/images/upload", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(images),
         });
-  
+
         if (!response.ok) {
           throw new Error(`HTTP error! Status: ${response.status}`);
         }
-  
+
         const responseBody = await response.text();
         console.log("SessionKey retrieved: ", responseBody);
         return responseBody;
-  
+
       } catch (error) {
         console.error(`Error during upload attempt ${attempt}:`, error);
-  
+
         if (attempt === retries) {
           console.error("Max retries reached. Upload failed.");
           throw error;
         }
-  
+
         console.warn(`Retrying upload... (${attempt + 1}/${retries})`);
-        await new Promise((resolve) => setTimeout(resolve, 2000)); 
+        await new Promise((resolve) => setTimeout(resolve, 2000));
       }
     }
-  
+
     return null;
   };
-  
+
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -295,7 +344,7 @@ const ImageGrid: React.FC = () => {
     }
   };
 
-  
+
   const fetchOriginalImage = async (imageKey: string, retries = 10): Promise<any | null> => {
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
@@ -313,37 +362,37 @@ const ImageGrid: React.FC = () => {
             headers: { "Content-Type": "application/json" },
           }
         );
-  
-        if (!response.ok) {
+
+        if (!response.ok && response.status !== 404) {
           throw new Error(`HTTP error! Status: ${response.status}`);
         }
-  
+
         const imageData = await response.json();
         console.log("Fetched original image data:", imageData);
         return imageData;
-  
+
       } catch (error) {
         console.error(`Error fetching image attempt ${attempt}:`, error);
-  
+
         if (attempt === retries) {
           console.error("Max retries reached. Fetch failed.");
-          throw error; 
+          throw error;
         }
-  
+
         console.warn(`Retrying fetch... (${attempt + 1}/${retries})`);
-        await new Promise((resolve) => setTimeout(resolve, 2000)); 
+        await new Promise((resolve) => setTimeout(resolve, 2000));
       }
     }
-  
+
     return null;
   };
-  
+
 
   const handleMouseEnter = async (image: Image) => {
     setHoveredImageClicked(true);
     const fetchedImage = await fetchOriginalImage(image.imageKey);
     if (fetchedImage) {
-      setHoveredImage(fetchedImage.base64);
+      setHoveredImage(fetchedImage);
       setHoveredImageStyle({
         width: `${fetchedImage.width}px`,
         height: `${fetchedImage.height}px`,
@@ -364,7 +413,7 @@ const ImageGrid: React.FC = () => {
           variant="outlined"
           onClick={() => {
             setSessionOnly(false);
-            setSessionKey({sessionKey: "all", imageCount: 0 });
+            setSessionKey({ sessionKey: "all", imageCount: 0 });
           }}
         >
           Load
@@ -373,7 +422,7 @@ const ImageGrid: React.FC = () => {
           variant="outlined"
           onClick={() => {
             setImageSize("small");
-            }
+          }
           }
           className="top-bar-button"
           sx={{
@@ -429,33 +478,51 @@ const ImageGrid: React.FC = () => {
             className="image-grid-item"
             onClick={() => handleMouseEnter(image)}
           >
-            {image.loaded ? (
-              <img
-                src={image.base64}
-                alt={`Image ${image.name}`}
-                className="image-grid-item-image"
-                style={{
-                  width: `${image.width}px`,
-                  height: `${image.height}px`,
-                }}
-              />
-            ) : (
-              <div 
-              className="image-grid-placeholder"
-                style={{
-                  width: `${imageSize === "small" ? 50 : imageSize === "medium" ? 200 : 300}px`,
-                  height: `${imageSize === "small" ? 50 : imageSize === "medium" ? 200 : 300}px`,
-                }}
-              >
-                <div 
-                className="loader"
-                style={{
-                  width: `${imageSize === "small" ? 12 : imageSize === "medium" ? 50 : 75}px`,
-                  height: `${imageSize === "small" ? 12 : imageSize === "medium" ? 50 : 75}px`,
-                }}
-                ></div>
-              </div>
-            )}
+            {(image.loaded && image.base64.includes(ERROR)) ?
+              (
+                <div
+                  className="image-grid-placeholder damaged"
+                  style={{
+                    width: `${imageSize === "small" ? 100 : imageSize === "medium" ? 200 : 300}px`,
+                    height: `${imageSize === "small" ? 100 : imageSize === "medium" ? 200 : 300}px`,
+                  }}
+                >
+                  <img src={sad}                   
+                  style={{
+                    width: `${imageSize === "small" ? 40 : imageSize === "medium" ? 130 : 210}px`,
+                    height: `${imageSize === "small" ? 40 : imageSize === "medium" ? 130 : 210}px`,
+                  }}></img>
+                  <p>Image "{image.name}" is damaged</p>
+
+                </div>
+              ) : (image.loaded) ? (
+                <img
+                  src={image.base64}
+                  alt={`Image ${image.name}`}
+                  className="image-grid-item-image"
+                  style={{
+                    width: `${image.width}px`,
+                    height: `${image.height}px`,
+                  }}
+                />
+              )
+                : (
+                  <div
+                    className="image-grid-placeholder"
+                    style={{
+                      width: `${imageSize === "small" ? 100 : imageSize === "medium" ? 200 : 300}px`,
+                      height: `${imageSize === "small" ? 100 : imageSize === "medium" ? 200 : 300}px`,
+                    }}
+                  >
+                    <div
+                      className="loader"
+                      style={{
+                        width: `${imageSize === "small" ? 12 : imageSize === "medium" ? 50 : 75}px`,
+                        height: `${imageSize === "small" ? 12 : imageSize === "medium" ? 50 : 75}px`,
+                      }}
+                    ></div>
+                  </div>
+                )}
           </div>
         ))}
       </div>
@@ -468,13 +535,25 @@ const ImageGrid: React.FC = () => {
           >
             X
           </Button>
-          {hoveredImage ? (
-            <img src={hoveredImage} alt="Hovered Preview" />
-          ) : (
-            <div className="hover-image-grid-placeholder">
-              <div className="loader"></div>
+          {(hoveredImage && hoveredImage.base64.includes(ERROR)) ? (
+            <div
+              className="damaged-image">
+                  <img src={sad}                   
+                  style={{
+                    width: `400px`,
+                    height: `400px`,
+                  }}></img>
+                  <p>Image "{hoveredImage.name}" is damaged</p>
             </div>
-          )}
+          ) :
+            (hoveredImage) ?
+              (
+                <img src={hoveredImage.base64} alt="Hovered Preview" />
+              ) : (
+                <div className="hover-image-grid-placeholder">
+                  <div className="loader"></div>
+                </div>
+              )}
         </div>
       )}
     </div>

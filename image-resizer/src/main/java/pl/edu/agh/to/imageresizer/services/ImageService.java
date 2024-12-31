@@ -16,6 +16,8 @@ import java.time.Duration;
 
 @Service
 public class ImageService {
+    public static final String ERROR = "ERROR";
+    public static final int ERROR_WIDTH_AND_HEIGHT = 0;
     private final OriginalImageRepository originalImageRepository;
     private final ResizedImageRepository resizedImageRepository;
     private final ImageResizer imageResizer;
@@ -27,23 +29,35 @@ public class ImageService {
     }
 
     public Flux<ResizedImage> getAllResizedImages(ImageSize imageSize) {
-        return resizedImageRepository.findResizedImagesByWidthAndHeight(imageSize.getWidth(), imageSize.getHeight());
+        return Flux.concat(
+                resizedImageRepository.findResizedImagesByWidthAndHeight(imageSize.getWidth(), imageSize.getHeight()),
+                resizedImageRepository.findResizedImagesByWidthAndHeight(ERROR_WIDTH_AND_HEIGHT, ERROR_WIDTH_AND_HEIGHT)
+        );
 
     }
 
     public Flux<ResizedImage> getResizedImagesForSessionKey(String sessionKey, ImageSize imageSize) {
         return Flux.just(sessionKey)
                 .flatMap(key ->
-                        resizedImageRepository.findResizedImagesBySessionKeyAndWidthAndHeight(key,
-                                imageSize.getWidth(), imageSize.getHeight()));
+                        Flux.merge(
+                                resizedImageRepository.findResizedImagesBySessionKeyAndWidthAndHeight(key,
+                                        imageSize.getWidth(), imageSize.getHeight()),
+                                resizedImageRepository.findResizedImagesBySessionKeyAndWidthAndHeight(key,
+                                        ERROR_WIDTH_AND_HEIGHT, ERROR_WIDTH_AND_HEIGHT)));
 
     }
 
     public Flux<ResizedImage> getResizedImagesByImageKey(String imageKey, ImageSize imageSize) {
         return Flux.just(imageKey)
                 .flatMap(key ->
-                        resizedImageRepository.findResizedImagesByImageKeyAndWidthAndHeight(key,
-                                imageSize.getWidth(), imageSize.getHeight()));
+                        Flux.merge(
+                                resizedImageRepository
+                                        .findResizedImagesByImageKeyAndWidthAndHeight(key, imageSize.getWidth(), imageSize.getHeight()),
+                                resizedImageRepository
+                                        .findResizedImagesByImageKeyAndWidthAndHeight(key, ERROR_WIDTH_AND_HEIGHT, ERROR_WIDTH_AND_HEIGHT)
+                        )
+                );
+
 
     }
 
@@ -60,15 +74,19 @@ public class ImageService {
                 .flatMap(dimensions -> saveOriginalImage(imageDto, dimensions))
                 .flatMap(savedOriginalImage -> resizeImage(imageDto, sessionKey, savedOriginalImage)
                         .all(result -> result))
-                .onErrorResume(e -> {
-                    e.printStackTrace();
-                    return Mono.just(false);
-                });
+                .onErrorResume(e -> saveErrorOriginalImage(imageDto)
+                        .flatMap(savedImage -> saveErrorResizedImage(imageDto, sessionKey, savedImage))
+                        .then(Mono.just(false)));
     }
 
     private Mono<OriginalImage> saveOriginalImage(ImageDto imageDto, Pair<Integer, Integer> dimensions) {
         OriginalImage originalImage = new OriginalImage(imageDto.name(), imageDto.base64(), dimensions.getFirst(), dimensions.getSecond());
-        return originalImageRepository.save(originalImage);
+        return originalImageRepository.save(originalImage)
+                .onErrorResume(e -> {
+                    OriginalImage errorImage = new OriginalImage(imageDto.name(), ERROR,
+                            ERROR_WIDTH_AND_HEIGHT, ERROR_WIDTH_AND_HEIGHT);
+                    return originalImageRepository.save(errorImage);
+                });
     }
 
     private Flux<Boolean> resizeImage(ImageDto imageDto, String sessionKey, OriginalImage savedOriginalImage) {
@@ -77,7 +95,8 @@ public class ImageService {
                     resizedImage.setOriginalImageId(savedOriginalImage.getImageId());
                     return resizedImageRepository.save(resizedImage)
                             .then(Mono.just(true));
-                });
+                })
+                .onErrorResume(e -> saveErrorResizedImage(imageDto, sessionKey, savedOriginalImage));
     }
 
     private Mono<Pair<Integer, Integer>> getImageDimensions(String base64) {
@@ -93,6 +112,30 @@ public class ImageService {
 
             return Pair.of(originalImage.getWidth(), originalImage.getHeight());
         });
+    }
+
+    private Mono<Boolean> saveErrorResizedImage(ImageDto imageDto, String sessionKey, OriginalImage savedOriginalImage) {
+        ResizedImage resizedImage = new ResizedImage(
+                imageDto.imageKey(),
+                imageDto.name(),
+                ERROR,
+                sessionKey,
+                ERROR_WIDTH_AND_HEIGHT,
+                ERROR_WIDTH_AND_HEIGHT
+        );
+        resizedImage.setOriginalImageId(savedOriginalImage.getImageId());
+        return resizedImageRepository.save(resizedImage)
+                .then(Mono.just(true));
+    }
+
+    private Mono<OriginalImage> saveErrorOriginalImage(ImageDto imageDto) {
+        OriginalImage originalImage = new OriginalImage(
+                imageDto.name(),
+                ERROR,
+                ERROR_WIDTH_AND_HEIGHT,
+                ERROR_WIDTH_AND_HEIGHT
+        );
+        return originalImageRepository.save(originalImage);
     }
 
 }

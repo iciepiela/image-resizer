@@ -53,6 +53,12 @@ body {
   justify-content: center;
   align-items: center;
   position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.image-grid-placeholder p {
+  font-size: 12px;
 }
 
 .image-grid-placeholder span {
@@ -103,6 +109,12 @@ body {
   align-items: center;
   position: absolute;
   transform: translate(-50%, -50%);
+}
+
+.damaged-image{
+  align-items: center;
+  display:flex;
+  flex-direction: column;
 }
 @keyframes spin {
   0% {

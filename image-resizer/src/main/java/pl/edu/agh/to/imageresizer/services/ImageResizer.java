@@ -1,5 +1,7 @@
 package pl.edu.agh.to.imageresizer.services;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import pl.edu.agh.to.imageresizer.dto.ImageDto;
 import pl.edu.agh.to.imageresizer.model.ImageSize;
@@ -14,26 +16,35 @@ import java.io.IOException;
 
 @Service
 public class ImageResizer {
+    private static final Logger logger = LoggerFactory.getLogger(ImageResizer.class);
 
     public Flux<ResizedImage> resize(ImageDto imageDto, String sessionKey) {
         return Flux.just(ImageSize.values())
-                .map(imageSize -> {
+                .<ResizedImage>handle((imageSize, sink) -> {
                     try {
-                        return new ResizedImage(
+                        sink.next(new ResizedImage(
                                 imageDto.imageKey(),
                                 imageDto.name(),
                                 getResizedBase64(imageDto.base64(), imageSize.getWidth(), imageSize.getHeight()),
                                 sessionKey,
                                 imageSize.getWidth(),
                                 imageSize.getHeight()
-                        );
+                        ));
                     } catch (IOException e) {
-                        throw new RuntimeException("Failed to resize image: " + e.getMessage(), e);
+                        sink.error(new RuntimeException("Failed to resize image: " + e.getMessage(), e));
                     }
                 })
                 .onErrorResume(e -> {
-                    System.err.println("Error during resizing: " + e.getMessage());
-                    return Flux.error(new RuntimeException("Image resizing failed for session " + sessionKey, e));
+                    logger.error(e.getMessage());
+                    return Flux.just(new ResizedImage(
+                            imageDto.imageKey(),
+                            ImageService.ERROR,
+                            ImageService.ERROR,
+                            sessionKey,
+                            ImageService.ERROR_WIDTH_AND_HEIGHT,
+                            ImageService.ERROR_WIDTH_AND_HEIGHT
+                    ));
+
                 });
     }
 
