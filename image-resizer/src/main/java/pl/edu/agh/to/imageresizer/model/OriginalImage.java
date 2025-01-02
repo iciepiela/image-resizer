@@ -15,13 +15,17 @@ public class OriginalImage {
     private long imageId;
     private String name;
     private String base64;
+    private String sessionKey;
+    private String imageKey;
     private int width;
     private int height;
 
-    public OriginalImage(String name, String base64, int width, int height) {
+    public OriginalImage(String name, String base64, String sessionKey, String imageKey, int width, int height) {
         this.name = name;
         this.base64 = base64;
         this.width = width;
         this.height = height;
+        this.sessionKey = sessionKey;
+        this.imageKey = imageKey;
     }
 }

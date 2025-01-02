@@ -19,7 +19,11 @@ public class ImageResizer {
     private static final Logger logger = LoggerFactory.getLogger(ImageResizer.class);
 
     public Flux<ResizedImage> resize(ImageDto imageDto, String sessionKey) {
-        return Flux.just(ImageSize.values())
+        return resize(imageDto, sessionKey, Flux.just(ImageSize.values()));
+    }
+
+    public Flux<ResizedImage> resize(ImageDto imageDto, String sessionKey, Flux<ImageSize> size) {
+        return size
                 .<ResizedImage>handle((imageSize, sink) -> {
                     try {
                         sink.next(new ResizedImage(

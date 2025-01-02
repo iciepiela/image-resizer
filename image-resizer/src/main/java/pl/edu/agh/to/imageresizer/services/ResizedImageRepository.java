@@ -12,4 +12,6 @@ public interface ResizedImageRepository extends ReactiveCrudRepository<ResizedIm
     Flux<ResizedImage> findResizedImageByImageKey(String imageKey);
 
     Flux<ResizedImage> findResizedImagesByWidthAndHeight(int width, int height);
+
+    Flux<ResizedImage> findResizedImagesByOriginalImageIdAndWidthAndHeight(Long originalImageId, Integer width, Integer height);
 }
