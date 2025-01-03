@@ -54,7 +54,7 @@ class ImageControllerTest {
     }
 
     @Test
-    void testGetImagesByImageKey() {
+    void testGetImageByImageKey() {
         // given
         String key = "test-session";
         ResizedImage image1 = new ResizedImage("key1", "image1", "base64_1", "smallUrl1", 0, 0);
@@ -73,7 +73,7 @@ class ImageControllerTest {
     }
 
     @Test
-    void testGetImagesByImageKeyDamaged() {
+    void testGetImageByImageKeyDamaged() {
         // given
         String key = "test-session";
         ResizedImage image1 = new ResizedImage("key1", "image1", ERROR, "smallUrl1", 0, 0);
