@@ -139,6 +139,30 @@ Zlikwidowaliśmy przechowywanie obrazków w localStorage, gdyż okazało się,
 
 
 ## [03.01.2025] Milestone 2
+### Schemat bazy danych
+
+### Backend
+
+### Frontend
+
+### Flow
+Po dodaniu uszkodzonego obrazka i w każdej innej sytuacji, kiedy obrazek się nie policzy poprawnie, 
+wpisujemy obrazek do bazy z wymiarami 0x0 i base64 "ERROR":   
+![img.png](images/db_error.png)    
+Frontend wtedy wygląda tak:   
+![img.png](images/image_damaged.png)     
+     
+Kolejny feature polega na tym, że w pierwszej kolejności przed liczeniem miniatur zapisujemy do bazy
+oryginały obrazków. Dzięki temu w razie awarii serwera, po jego restarcie zostaną pobrane wszystkie orygniały
+i sprawdzimy, czy mają one policzone w bazie wszystkie miniatury - jeśli nie, zostaną one zapisane do bazy.
+
+Przykładowo - do bazy zostało zapisanych 10 oryginalnych obrazków - miniatur powinno być więc 30, 
+jednak jest ich mniej - w tym momencie serwer ulega awarii:   
+![img.png](images/original_awaria.png)    
+
+![img.png](images/resized_awaria.png)   
+Po restarcie serwera policzy się reszta miniatur:    
+![img.png](images/resized_awaria2.png)   
 
 ### TODO:
 - [x] Zmiany rozmiarów miniatur
