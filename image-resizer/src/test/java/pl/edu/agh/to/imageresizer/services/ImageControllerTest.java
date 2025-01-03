@@ -139,7 +139,8 @@ class ImageControllerTest {
     void testGetOriginalImage() {
         // given
         String imageKey = "imageKey";
-        OriginalImage originalImage = new OriginalImage("name", "base64", 20, 20);
+        String sessionKey = "session";
+        OriginalImage originalImage = new OriginalImage("name", "base64", sessionKey, imageKey, 20, 20);
         Mockito.when(imageService.getOriginalImage(imageKey)).thenReturn(Mono.just(originalImage));
 
         ImageDto imageDto = new ImageDto(null, "name", "base64", 20, 20);
@@ -154,7 +155,8 @@ class ImageControllerTest {
     void testGetOriginalImageDamaged() {
         // given
         String imageKey = "imageKey";
-        OriginalImage originalImage = new OriginalImage("name", ERROR, 0, 0);
+        String sessionKey = "session";
+        OriginalImage originalImage = new OriginalImage("name", ERROR, sessionKey, imageKey, 0, 0);
         Mockito.when(imageService.getOriginalImage(imageKey)).thenReturn(Mono.just(originalImage));
 
         ImageDto imageDto = new ImageDto(null, "name", ERROR, 0, 0);

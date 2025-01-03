@@ -1,6 +1,6 @@
 # ORZESZKI - Changelog
 
-## [6.12.2024] Plan działania
+## [6.12.2024] Plan działania Milestone 1
 ### Technologie
 - backend: Spring + Webflux 
 - frontend: React + RxJs
@@ -8,11 +8,11 @@
   
 ### Schemat bazy danych
 
-![Baza danych](./images/Screenshot%202024-12-06%20at%2013-42-15%20Vertabelo%20-%20image-resizer.png)
+![Baza danych](images/images/database_images.png)
 
 ### Diagram klas backend
 
-![Diagram klas](./images/class_diagram.png)
+![Diagram klas](images/class_diagram.png)
 
 ### Frontend
 Na frontendzie przewidujemy oprócz klasy `App.jsx` tylko plik `ImageGrid.jsx` zawierający obsługę strony głównej do uploadowania i wyświetlania obrazków oraz plik z pomocniczymi funkcjami do obsługi plików zip i generowania kluczy dla obrazków.
@@ -137,13 +137,27 @@ możemy nie dostać wszystkich obrazków (gdyż jeszcze się liczą/są zapisywa
 Zlikwidowaliśmy przechowywanie obrazków w localStorage, gdyż okazało się, 
 że dla dużych zbiorów obrazków powodowało to problemy pamięciowe, przez co placeholdery się nie pokazywały.
 
+## [20.12.2024] Plan działania Milestone 2
+
+### TODO:
+- [x] Zmiany rozmiarów miniatur
+- [x] Możliwość przełączania
+- [x] Odporność na awarie
+
 
 ## [03.01.2025] Milestone 2
 ### Schemat bazy danych
+Baza danych nie uległa zmianie
 
 ### Backend
+Teraz zamiast tworzyć jedną to tworzymy trzy rozmiary każdej miniatury które dzielą wszystkie wspólne parametry poza rozmiarem,
+dzięki czemu możemy łatwo je pobrać z bazy
 
 ### Frontend
+Dodaliśmy 3 przyciski, small, medium i large które jak nazwa wskazuje okreslają rozmiar obrazków, gdzie small jest wybrany od początku
+![img.png](images/frontButtonsResize.png)
+po kliknięciu na który kolwiek zmienia on rozmiar wszystkich miniatur znajdujących sie na stronie oraz wszystkich następnie dodanych
+
 
 ### Flow
 Po dodaniu uszkodzonego obrazka i w każdej innej sytuacji, kiedy obrazek się nie policzy poprawnie, 
@@ -158,13 +172,8 @@ i sprawdzimy, czy mają one policzone w bazie wszystkie miniatury - jeśli nie, 
 
 Przykładowo - do bazy zostało zapisanych 10 oryginalnych obrazków - miniatur powinno być więc 30, 
 jednak jest ich mniej - w tym momencie serwer ulega awarii:   
-![img.png](images/original_awaria.png)    
+![img.png](images/original_error.png)    
 
-![img.png](images/resized_awaria.png)   
+![img.png](images/resized_error.png)   
 Po restarcie serwera policzy się reszta miniatur:    
-![img.png](images/resized_awaria2.png)   
-
-### TODO:
-- [x] Zmiany rozmiarów miniatur
-- [x] Możliwość przełączania
-- [] Odporność na awarie
+![img.png](images/resized_error2.png)   
