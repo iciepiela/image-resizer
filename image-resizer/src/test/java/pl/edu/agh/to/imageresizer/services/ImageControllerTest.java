@@ -29,7 +29,7 @@ class ImageControllerTest {
     private final ImageController imageController = new ImageController(imageService);
 
     @Test
-    void testGetImagesBySessionKey() {
+    void getImagesBySessionKey() {
         // given
         String sessionKey = "test-session";
         ResizedImage image1 = new ResizedImage("key1", "image1", "base64_1", "smallUrl1", 0, 0);
@@ -54,7 +54,7 @@ class ImageControllerTest {
     }
 
     @Test
-    void testGetImageByImageKey() {
+    void getImageByImageKey() {
         // given
         String key = "test-session";
         ResizedImage image1 = new ResizedImage("key1", "image1", "base64_1", "smallUrl1", 0, 0);
@@ -73,7 +73,7 @@ class ImageControllerTest {
     }
 
     @Test
-    void testGetImageByImageKeyDamaged() {
+    void getImageByImageKeyDamaged() {
         // given
         String key = "test-session";
         ResizedImage image1 = new ResizedImage("key1", "image1", ERROR, "smallUrl1", 0, 0);
@@ -92,7 +92,7 @@ class ImageControllerTest {
     }
 
     @Test
-    void testGetAllImages() {
+    void getAllImages() {
         //given
         ResizedImage image1 = new ResizedImage("key1", "image1", "base64_1", "smallUrl1", 0, 0);
         ResizedImage image2 = new ResizedImage("key2", "image2", ERROR, "base64_2", 0, 0);
@@ -114,7 +114,7 @@ class ImageControllerTest {
     }
 
     @Test
-    void testUploadImages() {
+    void uploadImages() {
         //given
         String sessionKey = "test-session";
         HttpSession mockSession = mock(HttpSession.class);
@@ -136,7 +136,7 @@ class ImageControllerTest {
     }
 
     @Test
-    void testGetOriginalImage() {
+    void getOriginalImage() {
         // given
         String imageKey = "imageKey";
         String sessionKey = "session";
@@ -152,7 +152,7 @@ class ImageControllerTest {
     }
 
     @Test
-    void testGetOriginalImageDamaged() {
+    void getOriginalImageDamaged() {
         // given
         String imageKey = "imageKey";
         String sessionKey = "session";

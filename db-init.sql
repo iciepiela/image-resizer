@@ -11,17 +11,18 @@ CREATE TABLE original_images
 );
 
 -- Create table for ResizedImage
-CREATE TABLE IF NOT EXISTS resized_images
+create table resized_images
 (
-    image_id       SERIAL PRIMARY KEY,
-    original_image BIGINT,
-    image_key      VARCHAR(255),
-    session_key      VARCHAR(255),
-    width INTEGER,
-    height INTEGER,
-    name          VARCHAR(255),
-
-    CONSTRAINT fk_original_image FOREIGN KEY (original_image)
-        REFERENCES original_images (image_id)
-        ON DELETE CASCADE
+    image_id       serial
+        primary key,
+    original_image bigint
+        constraint fk_original_image
+            references original_images
+            on delete cascade,
+    image_key      varchar(255),
+    session_key    varchar(255),
+    width          integer,
+    height         integer,
+    name           varchar(255),
+    base64         text
 );

@@ -24,31 +24,30 @@ public class ImageResizer {
 
     public Flux<ResizedImage> resize(ImageDto imageDto, String sessionKey, Flux<ImageSize> size) {
         return size
-                .<ResizedImage>handle((imageSize, sink) -> {
+                .map(imageSize -> {
                     try {
-                        sink.next(new ResizedImage(
+                        return new ResizedImage(
                                 imageDto.imageKey(),
                                 imageDto.name(),
                                 getResizedBase64(imageDto.base64(), imageSize.getWidth(), imageSize.getHeight()),
                                 sessionKey,
                                 imageSize.getWidth(),
                                 imageSize.getHeight()
-                        ));
+                        );
                     } catch (IOException e) {
-                        sink.error(new RuntimeException("Failed to resize image: " + e.getMessage(), e));
+                        throw new RuntimeException("Failed to resize image: " + e.getMessage(), e);
                     }
                 })
                 .onErrorResume(e -> {
                     logger.error(e.getMessage());
                     return Flux.just(new ResizedImage(
                             imageDto.imageKey(),
-                            ImageService.ERROR,
+                            imageDto.name(),
                             ImageService.ERROR,
                             sessionKey,
                             ImageService.ERROR_WIDTH_AND_HEIGHT,
                             ImageService.ERROR_WIDTH_AND_HEIGHT
                     ));
-
                 });
     }
 
