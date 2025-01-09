@@ -176,4 +176,27 @@ jednak jest ich mniej - w tym momencie serwer ulega awarii:
 
 ![img.png](images/resized_error.png)   
 Po restarcie serwera policzy się reszta miniatur:    
-![img.png](images/resized_error2.png)   
+![img.png](images/resized_error2.png)  
+
+## [10.01.2025] Milestone 2 - poprawki
+### Schemat bazy danych
+Baza danych nie uległa zmianie
+
+### Backend
+- Przerzuciliśmy base64 używane do plików w katalogu src/test/resources/services
+- usunęliśmy przedrostki `should/test` w nazwach testów
+- przywróciliśmy zwykły `map` zamiast `sink` w `ImageResizer.resize`
+- poprawiliśmy też sposób przeliczania obrazków niepoliczonych w wyniku awarii serwera. 
+Przyjęliśmy metodę, w której pobieramy tylko obrazki, którym brakuje miniatur każdego rodzaju 
+i przetwarzamy je korzystając ze stronicowania (początkowo pobieramy tylko 10 obrazków, przetwarzamy je, 
+potem kolejne 10 itd). Niestety nie możemy wprowadzić rozwiązania, które wylicza miniatury dopiero wtedy
+kiedy użytkownik o nie poprosi - nie dalibyśmy rady rozróżnić sytuacji, kiedy obrazka nie ma w bazie,
+gdyż liczenie jego miniatury jeszcze trwa, czy też dlatego że miniatura nie policzyła się 
+w wyniku awarii sewera.
+
+### Frontend
+Brak zmian
+
+### Flow
+- problemy z odpaleniem aplikacji w dockerze najprawdopodobniej wynikały z błędu w `db-init.json`. 
+ Nie zauważyliśmy tego, gdyż przy lokalnym uruchamianiu wszystko działało. Problem ten został naprawiony i wszystko powinno już działać

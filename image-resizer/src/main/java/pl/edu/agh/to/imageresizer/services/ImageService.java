@@ -3,6 +3,8 @@ package pl.edu.agh.to.imageresizer.services;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Service;
 import pl.edu.agh.to.imageresizer.controllers.ImageController;
@@ -22,6 +24,7 @@ import java.time.Duration;
 public class ImageService {
     public static final String ERROR = "ERROR";
     public static final int ERROR_WIDTH_AND_HEIGHT = 0;
+    private static final int PAGE_SIZE = 10;
     private final OriginalImageRepository originalImageRepository;
     private final ResizedImageRepository resizedImageRepository;
     private final ImageResizer imageResizer;
@@ -36,13 +39,46 @@ public class ImageService {
 
     @PostConstruct
     public void reprocessAllImages() {
-        originalImageRepository.findAll()
-                .flatMap(originalImage ->  Flux.just(ImageSize.values())
-                                    .flatMap(imageSize -> resizeSingleThumbnail(imageSize, originalImage)))
+        Flux.just(ImageSize.values())
+                .flatMap(this::processImageSize)
                 .subscribe(
                         result -> logger.info("Image processed successfully."),
                         error -> logger.error("Error processing image", error)
                 );
+    }
+
+    private Flux<Boolean> processImageSize(ImageSize imageSize) {
+        return processPage(0, imageSize);
+    }
+
+    private Flux<Boolean> processPage(int page, ImageSize imageSize) {
+        Pageable pageable = PageRequest.of(page, PAGE_SIZE);
+
+        return originalImageRepository.findOriginalImagesWithoutResizedImageOfSize(imageSize.getWidth(), imageSize.getHeight(), pageable)
+                .flatMap(originalImage -> resizeImage(originalImage, imageSize))
+                .concatWith(hasNextPage(page, imageSize)
+                        .flatMap(hasNext -> {
+                            if (hasNext) {
+                                return processPage(page + 1, imageSize);
+                            } else {
+                                return Flux.just(false);
+                            }
+                        })
+                );
+    }
+
+    private Flux<Boolean> hasNextPage(int currentPage, ImageSize imageSize) {
+        Pageable pageable = PageRequest.of(currentPage, PAGE_SIZE);
+
+        return originalImageRepository.findOriginalImagesWithoutResizedImageOfSize(imageSize.getWidth(), imageSize.getHeight(), pageable)
+                .hasElements()
+                .flatMapMany(hasElements -> {
+                    if (hasElements) {
+                        return Flux.just(true);
+                    } else {
+                        return Flux.just(false);
+                    }
+                });
     }
 
     public Flux<ResizedImage> getAllResizedImages(ImageSize imageSize) {
@@ -94,15 +130,6 @@ public class ImageService {
                 .onErrorResume(e -> saveErrorOriginalImage(imageDto, sessionKey)
                         .flatMap(savedImage -> saveErrorResizedImage(imageDto, sessionKey, savedImage))
                         .then(Mono.just(false)));
-    }
-
-    private Flux<Boolean> resizeSingleThumbnail(ImageSize imageSize, OriginalImage originalImage) {
-        return resizedImageRepository.findResizedImagesByOriginalImageIdAndWidthAndHeight(
-                        originalImage.getImageId(),
-                        imageSize.getWidth(),
-                        imageSize.getHeight())
-                .hasElements()
-                .flatMapMany(imageExists -> imageExists ? Flux.just(true) : resizeImage(originalImage, imageSize));
     }
 
     private Mono<OriginalImage> saveOriginalImage(ImageDto imageDto, Pair<Integer, Integer> dimensions, String sessionKey) {
