@@ -7,7 +7,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import pl.edu.agh.to.imageresizer.dto.DirectoryDto;
 import pl.edu.agh.to.imageresizer.dto.ImageDto;
+import pl.edu.agh.to.imageresizer.model.Directory;
 import pl.edu.agh.to.imageresizer.model.ImageSize;
 import pl.edu.agh.to.imageresizer.model.ResizedImage;
 import pl.edu.agh.to.imageresizer.services.ImageService;
@@ -57,6 +59,23 @@ public class ImageController {
                 .map(this::getImageDtoResponseEntity);
     }
 
+    @GetMapping(value = "/resized/by-directory", params = {"dirKey", "sizeString"}, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ResponseEntity<ImageDto>> getImagesByDirKey(@RequestParam String dirKey, @RequestParam String sizeString) {
+        return imageService.getResizedImagesByDirKey(dirKey, ImageSize.valueOf(sizeString.toUpperCase()))
+                .map(this::convertToImageDto)
+                .doOnNext(image -> logger.info(image.toString()))
+                .concatWith(Flux.just(new ImageDto(COMPLETE_REQUEST, COMPLETE_REQUEST, COMPLETE_REQUEST, 0, 0)))
+                .map(this::getImageDtoResponseEntity);
+    }
+
+    @GetMapping(value = "/parent", params = {"dirKey"}, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Mono<ResponseEntity<String>> getParent(@RequestParam String dirKey) {
+        return imageService.getDirectoryParent(dirKey)
+                .map(Directory::getDirectoryKey)
+                .doOnNext(image -> logger.info(image.toString()))
+                .map(element -> ResponseEntity.ok().body(element));
+    }
+
     @GetMapping(value = "/resized/all", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ResponseEntity<ImageDto>> getAllImages(@RequestParam String sizeString) {
         ImageSize size = ImageSize.valueOf(sizeString.toUpperCase());
@@ -83,7 +102,19 @@ public class ImageController {
     public Mono<ResponseEntity<String>> uploadImages(@RequestBody List<ImageDto> images, HttpSession httpSession) {
         String sessionKey = httpSession.getId();
         Flux.fromIterable(images)
-                .flatMap(image -> imageService.resizeAndSaveOriginalImage(image, sessionKey))
+                .flatMap(image -> imageService.resizeAndSaveOriginalImage(image, sessionKey, null))
+                .doOnError(e -> logger.error("Error during image processing", e))
+                .subscribeOn(Schedulers.boundedElastic())
+                .subscribe();
+
+        return Mono.just(ResponseEntity.status(HttpStatus.OK).body(sessionKey));
+    }
+
+    @PostMapping(value = "/upload/dir", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Mono<ResponseEntity<String>> uploadDirectory(@RequestBody DirectoryDto directory, HttpSession httpSession) {
+        String sessionKey = httpSession.getId();
+        Flux.just(directory)
+                .flatMap(image -> imageService.saveDirectory(directory, sessionKey, null))
                 .doOnError(e -> logger.error("Error during image processing", e))
                 .subscribeOn(Schedulers.boundedElastic())
                 .subscribe();

@@ -97,6 +97,7 @@ body {
   align-items: center;
   position: relative;
 }
+
 .loader {
   border: 16px solid #282c2c;
   border-top: 16px solid #3498db;
@@ -111,11 +112,12 @@ body {
   transform: translate(-50%, -50%);
 }
 
-.damaged-image{
+.damaged-image {
   align-items: center;
-  display:flex;
+  display: flex;
   flex-direction: column;
 }
+
 @keyframes spin {
   0% {
     transform: rotate(0deg);
@@ -124,4 +126,17 @@ body {
   100% {
     transform: rotate(360deg);
   }
+}
+
+.directory-grid-item {
+  flex: 0 1 calc(33.33% - 8vw);
+  box-sizing: border-box;
+  flex-direction: column;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.directory-grid-item span {
+  color: white
 }

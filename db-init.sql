@@ -1,4 +1,15 @@
--- Create table for Originalmage
+create table directories
+(
+    directory_id        serial
+        primary key,
+    name                varchar(255),
+    directory_key                varchar(255),
+    parent_directory_id bigint NULL
+        constraint fk_pdirectory
+            references directories
+            on delete cascade
+);
+
 CREATE TABLE original_images
 (
     image_id SERIAL PRIMARY KEY,
@@ -7,22 +18,27 @@ CREATE TABLE original_images
     session_key      VARCHAR(255),
     base64  TEXT,
     width INTEGER,
-    height INTEGER
+    height INTEGER,
+    parent_directory_id BIGINT,
+
+    CONSTRAINT fk_directory FOREIGN KEY (parent_directory_id)
+        REFERENCES directories (directory_id)
+        ON DELETE CASCADE
 );
 
 -- Create table for ResizedImage
-create table resized_images
+CREATE TABLE IF NOT EXISTS resized_images
 (
-    image_id       serial
-        primary key,
-    original_image bigint
-        constraint fk_original_image
-            references original_images
-            on delete cascade,
-    image_key      varchar(255),
-    session_key    varchar(255),
-    width          integer,
-    height         integer,
-    name           varchar(255),
-    base64         text
+    image_id       SERIAL PRIMARY KEY,
+    original_image BIGINT,
+    image_key      VARCHAR(255),
+    session_key      VARCHAR(255),
+    width INTEGER,
+    height INTEGER,
+    name          VARCHAR(255),
+    base64        TEXT,
+
+    CONSTRAINT fk_original_image FOREIGN KEY (original_image)
+        REFERENCES original_images (image_id)
+        ON DELETE CASCADE
 );

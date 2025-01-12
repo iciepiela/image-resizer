@@ -8,7 +8,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Service;
 import pl.edu.agh.to.imageresizer.controllers.ImageController;
+import pl.edu.agh.to.imageresizer.dto.DirectoryDto;
 import pl.edu.agh.to.imageresizer.dto.ImageDto;
+import pl.edu.agh.to.imageresizer.model.Directory;
 import pl.edu.agh.to.imageresizer.model.ImageSize;
 import pl.edu.agh.to.imageresizer.model.OriginalImage;
 import pl.edu.agh.to.imageresizer.model.ResizedImage;
@@ -27,13 +29,15 @@ public class ImageService {
     private static final int PAGE_SIZE = 10;
     private final OriginalImageRepository originalImageRepository;
     private final ResizedImageRepository resizedImageRepository;
+    private final DirectoryRepository directoryRepository;
     private final ImageResizer imageResizer;
     private final Logger logger = LoggerFactory.getLogger(ImageController.class);
 
 
-    public ImageService(OriginalImageRepository originalImageRepository, ResizedImageRepository resizedImageRepository, ImageResizer imageResizer) {
+    public ImageService(OriginalImageRepository originalImageRepository, ResizedImageRepository resizedImageRepository, DirectoryRepository directoryRepository, ImageResizer imageResizer) {
         this.originalImageRepository = originalImageRepository;
         this.resizedImageRepository = resizedImageRepository;
+        this.directoryRepository = directoryRepository;
         this.imageResizer = imageResizer;
     }
 
@@ -100,6 +104,22 @@ public class ImageService {
 
     }
 
+    public Mono<Directory> getDirectoryParent(String dirKey) {
+        return Mono.just(dirKey)
+                .flatMap(key-> directoryRepository.findDirectoryParent(dirKey));
+    }
+
+    public Flux<ResizedImage> getResizedImagesByDirKey(String dirKey, ImageSize imageSize) {
+        return Flux.just(dirKey)
+                .flatMap(key ->
+                        Flux.merge(
+                                resizedImageRepository.findResizedImagesByDir(key,
+                                        imageSize.getWidth(), imageSize.getHeight()),
+                                resizedImageRepository.findResizedImagesByDir(key,
+                                        ERROR_WIDTH_AND_HEIGHT, ERROR_WIDTH_AND_HEIGHT)));
+
+    }
+
     public Flux<ResizedImage> getResizedImagesByImageKey(String imageKey, ImageSize imageSize) {
         return Flux.just(imageKey)
                 .flatMap(key ->
@@ -122,30 +142,51 @@ public class ImageService {
                 .delayElement(Duration.ofMillis(500));
     }
 
-    public Mono<Boolean> resizeAndSaveOriginalImage(ImageDto imageDto, String sessionKey) {
+    public Mono<Boolean> saveDirectory(DirectoryDto directoryDto, String sessionKey, Long parentDirectoryId) {
+        Directory directory = new Directory(
+                directoryDto.name(),
+                parentDirectoryId,
+                directoryDto.dirKey()
+        );
+
+        return directoryRepository.save(directory)
+                .flatMap(savedDirectory ->
+                    Flux.concat(
+                            Flux.fromIterable(directoryDto.directories())
+                            .flatMap(dir -> saveDirectory(dir, sessionKey, savedDirectory.getDirectoryId())),
+                        Flux.fromIterable(directoryDto.images())
+                            .flatMap(imageDto -> resizeAndSaveOriginalImage(imageDto, sessionKey, savedDirectory.getDirectoryId() ))
+                    )
+                            .then(Mono.just(true))
+                );
+    }
+
+    public Mono<Boolean> resizeAndSaveOriginalImage(ImageDto imageDto, String sessionKey, Long parentDirectoryId) {
         return getImageDimensions(imageDto.base64())
-                .flatMap(dimensions -> saveOriginalImage(imageDto, dimensions, sessionKey))
+                .flatMap(dimensions -> saveOriginalImage(imageDto, dimensions, sessionKey, parentDirectoryId))
                 .flatMap(savedOriginalImage -> resizeImage(imageDto, sessionKey, savedOriginalImage)
                         .all(result -> result))
-                .onErrorResume(e -> saveErrorOriginalImage(imageDto, sessionKey)
+                .onErrorResume(e -> saveErrorOriginalImage(imageDto, sessionKey, parentDirectoryId)
                         .flatMap(savedImage -> saveErrorResizedImage(imageDto, sessionKey, savedImage))
                         .then(Mono.just(false)));
     }
 
-    private Mono<OriginalImage> saveOriginalImage(ImageDto imageDto, Pair<Integer, Integer> dimensions, String sessionKey) {
+    private Mono<OriginalImage> saveOriginalImage(ImageDto imageDto, Pair<Integer, Integer> dimensions, String sessionKey, Long parentDirectoryId) {
         OriginalImage originalImage = new OriginalImage(imageDto.name(),
                 imageDto.base64(),
                 sessionKey,
                 imageDto.imageKey(),
                 dimensions.getFirst(),
-                dimensions.getSecond());
+                dimensions.getSecond(),
+                parentDirectoryId);
 
         return originalImageRepository.save(originalImage)
                 .onErrorResume(e -> {
                     OriginalImage errorImage = new OriginalImage(imageDto.name(), ERROR,
                             sessionKey,
                             imageDto.imageKey(),
-                            ERROR_WIDTH_AND_HEIGHT, ERROR_WIDTH_AND_HEIGHT);
+                            ERROR_WIDTH_AND_HEIGHT, ERROR_WIDTH_AND_HEIGHT,
+                            parentDirectoryId);
                     return originalImageRepository.save(errorImage);
                 });
     }
@@ -203,14 +244,15 @@ public class ImageService {
                 .then(Mono.just(true));
     }
 
-    private Mono<OriginalImage> saveErrorOriginalImage(ImageDto imageDto, String sessionKey) {
+    private Mono<OriginalImage> saveErrorOriginalImage(ImageDto imageDto, String sessionKey, Long parentDirectoryId) {
         OriginalImage originalImage = new OriginalImage(
                 imageDto.name(),
                 ERROR,
                 sessionKey,
                 imageDto.imageKey(),
                 ERROR_WIDTH_AND_HEIGHT,
-                ERROR_WIDTH_AND_HEIGHT
+                ERROR_WIDTH_AND_HEIGHT,
+                parentDirectoryId
         );
         return originalImageRepository.save(originalImage);
     }

@@ -19,13 +19,15 @@ public class OriginalImage {
     private String imageKey;
     private int width;
     private int height;
+    private long parentDirectoryId;
 
-    public OriginalImage(String name, String base64, String sessionKey, String imageKey, int width, int height) {
+    public OriginalImage(String name, String base64, String sessionKey, String imageKey, int width, int height, long parentDirectory) {
         this.name = name;
         this.base64 = base64;
         this.width = width;
         this.height = height;
         this.sessionKey = sessionKey;
         this.imageKey = imageKey;
+        this.parentDirectoryId = parentDirectory;
     }
 }

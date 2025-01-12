@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
 import { fromEvent, from, mergeMap, tap, finalize, catchError, Observable, EMPTY } from "rxjs";
 import { map } from "rxjs/operators";
-import { extractZip } from "../ImageUtils.tsx";
+import { extractZip, Directory } from "../ImageUtils.tsx";
 import Button from "@mui/material/Button";
+import { IconButton } from "@mui/material";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import FolderIcon from "@mui/icons-material/Folder";
 import "./ImageGrid.css";
 import sad from "../sad.png";
 
@@ -15,6 +18,7 @@ type Image = {
   loaded: boolean;
 };
 
+
 type SessionKey = {
   sessionKey: string | null;
   imageCount: number;
@@ -22,6 +26,9 @@ type SessionKey = {
 
 const ImageGrid: React.FC = () => {
   const [images, setImages] = useState<Image[]>([]);
+  const [directories, setDirectories] = useState<Directory[]>([]);
+  const [directory, setDirectory] = useState<Directory>();
+
   const [hoveredImage, setHoveredImage] = useState<Image | null>(null);
   const [hoveredImageStyle, setHoveredImageStyle] = useState<React.CSSProperties>({});
   const [hoveredImageClicked, setHoveredImageClicked] = useState(false);
@@ -110,6 +117,18 @@ const ImageGrid: React.FC = () => {
     );
   };
 
+  const loadParentDirectory=async() =>{
+    const response = await fetch(`http://localhost:8080/images/parent?dirKey=${directory?.dirKey}`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const parentKey=await response.text();
+
+    console.log(parentKey);
+    setSessionKey({sessionKey: parentKey, imageCount: 0});
+  }
+
   const loadPhotosByImageKey = (size: String): void => {
     console.log("Loading photos by imageKey...");
     console.log(images)
@@ -154,7 +173,7 @@ const ImageGrid: React.FC = () => {
     console.log("Loading photos...");
 
     const url = sessionOnly
-      ? `http://localhost:8080/images/resized/by-session?sessionKey=${sessionKey.sessionKey}&sizeString=${size}`
+      ? `http://localhost:8080/images/resized/by-directory?dirKey=${sessionKey.sessionKey}&sizeString=${size}`
       : `http://localhost:8080/images/resized/all?sizeString=${size}`;
 
     const eventSource = new EventSource(url);
@@ -266,23 +285,18 @@ const ImageGrid: React.FC = () => {
     };
   };
 
-  const uploadPhotos = async (imageList: Image[]) => {
+  const uploadPhotos = async (directory: Directory) => {
     console.log("Starting photo upload...");
 
-    const preparedImages = imageList.map((image) => ({
-      imageKey: image.imageKey,
-      name: image.name,
-      base64: image.base64,
-    }));
-    const imageCount = preparedImages.length;
+    const imageCount = directory.images.length;
 
     try {
-      const response = await uploadImagesToBackend(preparedImages);
+      const response = await uploadImagesToBackend(directory);
 
       if (response) {
         console.log("All photos uploaded successfully.");
         setSessionOnly(true);
-        setSessionKey({ sessionKey: response, imageCount: imageCount });
+        setSessionKey({ sessionKey: directory.dirKey, imageCount: imageCount, requestType: DIRECTORY });
       } else {
         console.log("Failed to upload photos.");
       }
@@ -291,7 +305,7 @@ const ImageGrid: React.FC = () => {
     }
   };
 
-  const uploadImagesToBackend = async (images: any[], retries = 10): Promise<string | null> => {
+  const uploadImagesToBackend = async (directory: Directory, retries = 10): Promise<string | null> => {
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
         const isServerHealthy = await checkServerHealth();
@@ -301,10 +315,10 @@ const ImageGrid: React.FC = () => {
           continue;
         }
 
-        const response = await fetch("http://localhost:8080/images/upload", {
+        const response = await fetch("http://localhost:8080/images/upload/dir", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(images),
+          body: JSON.stringify(directory),
         });
 
         if (!response.ok) {
@@ -335,9 +349,20 @@ const ImageGrid: React.FC = () => {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file && file.name.endsWith(".zip")) {
-      extractZip(file).then((loadedImgs) => {
-        setImages((prevImages) => [...prevImages, ...loadedImgs]);
-        uploadPhotos(loadedImgs);
+      extractZip(file).then((loadedFile) => {
+        console.log("imgs:", loadedFile);
+        setDirectories((prev) => [...prev, ...loadedFile.directories]);
+        setDirectory((prevDirectory) => ({
+          ...prevDirectory,
+          directories: [...(prevDirectory?.directories || []), ...loadedFile.directories],
+          name: prevDirectory?.name || loadedFile.name,
+          images: [...(prevDirectory?.images || []), ...loadedFile.images],
+          dirKey: prevDirectory?.dirKey || loadedFile.dirKey
+        }));
+        setDirectory(loadedFile);
+        console.log("dir", loadedFile.directories)
+        setImages((prevImages) => [...prevImages, ...loadedFile.images]);
+        uploadPhotos(loadedFile);
       });
     } else {
       alert("Please upload a valid ZIP file.");
@@ -472,6 +497,41 @@ const ImageGrid: React.FC = () => {
       </div>
       <div className="image-grid">
         <h1>Photos - click to make them bigger!!!</h1>
+        {(directory?.hasParent) ? (
+          <div  className="directory-grid-item"
+          onClick={loadParentDirectory}>
+            <IconButton/>
+            <FolderIcon style={{
+              color: "#ffb74d",
+              width: `${imageSize === "small" ? 100 : imageSize === "medium" ? 200 : 300}px`,
+              height: `${imageSize === "small" ? 100 : imageSize === "medium" ? 200 : 300}px`,
+            }} />
+            <span>Parent Folder</span>
+          </div>) : null
+        }
+        {directories.map((directory) => (
+          <div
+            key={directory.dirKey}
+            className="directory-grid-item"
+            onClick={() => {
+              setSessionOnly(true);
+              setDirectory(directory);
+              setImages(directory.images);
+              setDirectories(directory.directories);
+              setSessionKey({ sessionKey: directory.dirKey, imageCount: 0 });
+            }}
+          >
+
+
+            <FolderIcon style={{
+              color: "#ffb74d",
+              width: `${imageSize === "small" ? 100 : imageSize === "medium" ? 200 : 300}px`,
+              height: `${imageSize === "small" ? 100 : imageSize === "medium" ? 200 : 300}px`,
+            }} />
+            <span>{directory.name}</span>
+
+          </div>
+        ))}
         {images.map((image) => (
           <div
             key={image.imageKey}
@@ -487,11 +547,11 @@ const ImageGrid: React.FC = () => {
                     height: `${imageSize === "small" ? 100 : imageSize === "medium" ? 200 : 300}px`,
                   }}
                 >
-                  <img src={sad}                   
-                  style={{
-                    width: `${imageSize === "small" ? 40 : imageSize === "medium" ? 130 : 210}px`,
-                    height: `${imageSize === "small" ? 40 : imageSize === "medium" ? 130 : 210}px`,
-                  }}></img>
+                  <img src={sad}
+                    style={{
+                      width: `${imageSize === "small" ? 40 : imageSize === "medium" ? 130 : 210}px`,
+                      height: `${imageSize === "small" ? 40 : imageSize === "medium" ? 130 : 210}px`,
+                    }}></img>
                   <p>Image "{image.name}" is damaged</p>
 
                 </div>
@@ -538,12 +598,12 @@ const ImageGrid: React.FC = () => {
           {(hoveredImage && hoveredImage.base64.includes(ERROR)) ? (
             <div
               className="damaged-image">
-                  <img src={sad}                   
-                  style={{
-                    width: `400px`,
-                    height: `400px`,
-                  }}></img>
-                  <p>Image "{hoveredImage.name}" is damaged</p>
+              <img src={sad}
+                style={{
+                  width: `400px`,
+                  height: `400px`,
+                }}></img>
+              <p>Image "{hoveredImage.name}" is damaged</p>
             </div>
           ) :
             (hoveredImage) ?
