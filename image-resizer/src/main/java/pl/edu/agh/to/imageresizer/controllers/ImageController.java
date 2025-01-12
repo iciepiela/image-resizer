@@ -8,6 +8,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import pl.edu.agh.to.imageresizer.dto.ImageDto;
+import pl.edu.agh.to.imageresizer.model.ImageSize;
 import pl.edu.agh.to.imageresizer.model.ResizedImage;
 import pl.edu.agh.to.imageresizer.services.ImageService;
 import reactor.core.publisher.Flux;
@@ -15,6 +16,8 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 import java.util.List;
+
+import static pl.edu.agh.to.imageresizer.services.ImageService.ERROR;
 
 @RestController
 @RequestMapping("/images")
@@ -27,6 +30,11 @@ public class ImageController {
         this.imageService = imageService;
     }
 
+    @GetMapping("/health")
+    public ResponseEntity<String> healthCheck() {
+        return ResponseEntity.ok("Server is running");
+    }
+
     @GetMapping(value = "/original", produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<ResponseEntity<ImageDto>> getOriginalImage(@RequestParam String imageKey) {
         return imageService.getOriginalImage(imageKey)
@@ -37,26 +45,38 @@ public class ImageController {
                         originalImage.getWidth(),
                         originalImage.getHeight()
                 ))
-                .map(element -> ResponseEntity.ok().body(element));
+                .map(this::getImageDtoResponseEntity);
     }
 
-    @GetMapping(value = "/resized", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<ResponseEntity<ImageDto>> getImagesBySessionKey(@RequestParam String sessionKey) {
-        return imageService.getResizedImagesForSessionKey(sessionKey)
+    @GetMapping(value = "/resized/by-session", params = {"sessionKey", "sizeString"}, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ResponseEntity<ImageDto>> getImagesBySessionKey(@RequestParam String sessionKey, @RequestParam String sizeString) {
+        return imageService.getResizedImagesForSessionKey(sessionKey, ImageSize.valueOf(sizeString.toUpperCase()))
                 .map(this::convertToImageDto)
                 .doOnNext(image -> logger.info(image.toString()))
-                .concatWith(Flux.just(new ImageDto(COMPLETE_REQUEST, COMPLETE_REQUEST, COMPLETE_REQUEST, 0, 0))
-                        .delayElements(java.time.Duration.ofSeconds(1)))
-                .map(element -> ResponseEntity.ok().body(element));
+                .concatWith(Flux.just(new ImageDto(COMPLETE_REQUEST, COMPLETE_REQUEST, COMPLETE_REQUEST, 0, 0)))
+                .map(this::getImageDtoResponseEntity);
     }
 
     @GetMapping(value = "/resized/all", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<ResponseEntity<ImageDto>> getAllImages() {
-        return imageService.getAllResizedImages()
+    public Flux<ResponseEntity<ImageDto>> getAllImages(@RequestParam String sizeString) {
+        ImageSize size = ImageSize.valueOf(sizeString.toUpperCase());
+        logger.info("Getting all images in size: {}", size);
+        return imageService.getAllResizedImages(size)
                 .map(this::convertToImageDto)
+                .doOnNext(image -> logger.info(image.toString()))
                 .concatWith(Flux.just(new ImageDto(COMPLETE_REQUEST, COMPLETE_REQUEST, COMPLETE_REQUEST, 0, 0))
-                        .delayElements(java.time.Duration.ofSeconds(1)))
-                .map(element -> ResponseEntity.ok().body(element));
+                        .delayElements(java.time.Duration.ofMillis(500)))
+                .map(this::getImageDtoResponseEntity);
+    }
+
+    @GetMapping(value = "/resized/by-image-key", params = {"imageKey", "sizeString"}, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ResponseEntity<ImageDto>> getImageByImageKey(@RequestParam String imageKey, @RequestParam String sizeString) {
+        return imageService.getResizedImagesByImageKey(imageKey, ImageSize.valueOf(sizeString.toUpperCase()))
+                .map(this::convertToImageDto)
+                .doOnNext(image -> logger.info(image.toString()))
+                .concatWith(Flux.just(new ImageDto(COMPLETE_REQUEST, COMPLETE_REQUEST, COMPLETE_REQUEST, 0, 0))
+                        .delayElements(java.time.Duration.ofMillis(500)))
+                .map(this::getImageDtoResponseEntity);
     }
 
     @PostMapping(value = "/upload", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -80,4 +100,11 @@ public class ImageController {
                 resizedImage.getHeight()
         );
     }
+
+    private ResponseEntity<ImageDto> getImageDtoResponseEntity(ImageDto element) {
+        return element.base64().equals(ERROR) ?
+                ResponseEntity.status(HttpStatus.NOT_FOUND).body(element)
+                : ResponseEntity.ok().body(element);
+    }
+
 }
