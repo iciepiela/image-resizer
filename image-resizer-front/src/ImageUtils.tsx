@@ -7,10 +7,10 @@ export type Image = {
   loaded: boolean;
 };
 export type Directory = {
-  name: string;
+  name: string | null;
   directories: Directory[];
   images: Image[];
-  dirKey: string;
+  dirKey: string | null;
   hasParent: boolean;
 };
 
@@ -20,7 +20,7 @@ export const extractZip = async (file: File): Promise<Directory> => {
   const zip = new JSZip();
   try {
     const zipContent = await zip.loadAsync(file);
-    const root: Directory = { name: "", directories: [], images: [], hasParent: false };
+    const root: Directory = { name: "", directories: [], images: [], dirKey: generateUniqueKey("dir"), hasParent: false };
     const promises: Promise<void>[] = [];
     zipContent.forEach((relativePath, zipEntry) => {
       const pathParts = relativePath.split("/").filter((part) => part); // Split path and remove empty parts
@@ -44,10 +44,16 @@ export const extractZip = async (file: File): Promise<Directory> => {
       }
     });
     await Promise.all(promises);
-    return root.directories[0];
+    return root;
   } catch (error) {
     alert("Error extracting ZIP file: " + error.message);
-    return null;
+    return {
+      name: "",
+      directories: [],
+      images: [],
+      dirKey: generateUniqueKey("dir"),
+      hasParent: false,
+    };
   }
 };
 

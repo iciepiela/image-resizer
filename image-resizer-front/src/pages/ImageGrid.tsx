@@ -4,10 +4,9 @@ import { map } from "rxjs/operators";
 import { extractZip, Directory } from "../ImageUtils.tsx";
 import Button from "@mui/material/Button";
 import { IconButton } from "@mui/material";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+// import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import FolderIcon from "@mui/icons-material/Folder";
 import "./ImageGrid.css";
-import sad from "../sad.png";
 
 type Image = {
   base64: string;
@@ -27,13 +26,18 @@ type SessionKey = {
 const ImageGrid: React.FC = () => {
   const [images, setImages] = useState<Image[]>([]);
   const [directories, setDirectories] = useState<Directory[]>([]);
-  const [directory, setDirectory] = useState<Directory>();
-
+  const [directory, setDirectory] = useState<Directory>({
+    name: null,
+    directories: [],
+    images: [],
+    dirKey: null,
+    hasParent: false,
+  });
   const [hoveredImage, setHoveredImage] = useState<Image | null>(null);
   const [hoveredImageStyle, setHoveredImageStyle] = useState<React.CSSProperties>({});
   const [hoveredImageClicked, setHoveredImageClicked] = useState(false);
   const [sessionKey, setSessionKey] = useState<SessionKey | undefined>();
-  const [imageSize, setImageSize] = useState<String>("small");
+  const [imageSize, setImageSize] = useState<String>("medium");
   const [sessionOnly, setSessionOnly] = useState<boolean>(true);
   const [activeSubscriptions, setActiveSubscriptions] = useState<Map<string, EventSource>>(new Map());
 
@@ -296,7 +300,7 @@ const ImageGrid: React.FC = () => {
       if (response) {
         console.log("All photos uploaded successfully.");
         setSessionOnly(true);
-        setSessionKey({ sessionKey: directory.dirKey, imageCount: imageCount, requestType: DIRECTORY });
+        setSessionKey({ sessionKey: directory.dirKey, imageCount: imageCount});
       } else {
         console.log("Failed to upload photos.");
       }
@@ -547,7 +551,8 @@ const ImageGrid: React.FC = () => {
                     height: `${imageSize === "small" ? 100 : imageSize === "medium" ? 200 : 300}px`,
                   }}
                 >
-                  <img src={sad}
+                  <img src="/sad.png"
+                    alt="Sad face"
                     style={{
                       width: `${imageSize === "small" ? 40 : imageSize === "medium" ? 130 : 210}px`,
                       height: `${imageSize === "small" ? 40 : imageSize === "medium" ? 130 : 210}px`,
@@ -598,7 +603,8 @@ const ImageGrid: React.FC = () => {
           {(hoveredImage && hoveredImage.base64.includes(ERROR)) ? (
             <div
               className="damaged-image">
-              <img src={sad}
+              <img src="/sad.png"
+                alt="Sad face"
                 style={{
                   width: `400px`,
                   height: `400px`,
