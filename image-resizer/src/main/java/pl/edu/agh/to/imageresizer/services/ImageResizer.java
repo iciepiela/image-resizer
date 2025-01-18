@@ -18,11 +18,11 @@ import java.io.IOException;
 public class ImageResizer {
     private static final Logger logger = LoggerFactory.getLogger(ImageResizer.class);
 
-    public Flux<ResizedImage> resize(ImageDto imageDto, String sessionKey) {
-        return resize(imageDto, sessionKey, Flux.just(ImageSize.values()));
+    public Flux<ResizedImage> resize(ImageDto imageDto, String sessionKey, String directoryKey) {
+        return resize(imageDto, sessionKey, Flux.just(ImageSize.values()),directoryKey);
     }
 
-    public Flux<ResizedImage> resize(ImageDto imageDto, String sessionKey, Flux<ImageSize> size) {
+    public Flux<ResizedImage> resize(ImageDto imageDto, String sessionKey, Flux<ImageSize> size,String directoryKey) {
         return size
                 .map(imageSize -> {
                     try {
@@ -31,6 +31,7 @@ public class ImageResizer {
                                 imageDto.name(),
                                 getResizedBase64(imageDto.base64(), imageSize.getWidth(), imageSize.getHeight()),
                                 sessionKey,
+                                directoryKey,
                                 imageSize.getWidth(),
                                 imageSize.getHeight()
                         );
@@ -45,6 +46,7 @@ public class ImageResizer {
                             imageDto.name(),
                             ImageService.ERROR,
                             sessionKey,
+                            ImageService.ERROR,
                             ImageService.ERROR_WIDTH_AND_HEIGHT,
                             ImageService.ERROR_WIDTH_AND_HEIGHT
                     ));

@@ -21,14 +21,17 @@ public class ResizedImage {
     private String name;
     private String base64;
     private String sessionKey;
+    @Column("directory_key")
+    private String directoryKey;
     private int width;
     private int height;
 
-    public ResizedImage(String imageKey, String name, String base64, String sessionKey, Integer width, Integer height) {
+    public ResizedImage(String imageKey, String name, String base64, String sessionKey,String directoryKey, Integer width, Integer height) {
         this.imageKey = imageKey;
         this.name = name;
         this.base64 = base64;
         this.sessionKey = sessionKey;
+        this.directoryKey = directoryKey;
         this.width = width;
         this.height = height;
     }

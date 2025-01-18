@@ -1,14 +1,18 @@
 package pl.edu.agh.to.imageresizer.services;
 
 import jakarta.annotation.PostConstruct;
+import org.reactivestreams.Publisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.util.Pair;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import pl.edu.agh.to.imageresizer.controllers.ImageController;
+import pl.edu.agh.to.imageresizer.dto.DirectoryDto;
 import pl.edu.agh.to.imageresizer.dto.ImageDto;
+import pl.edu.agh.to.imageresizer.model.Directory;
 import pl.edu.agh.to.imageresizer.model.ImageSize;
 import pl.edu.agh.to.imageresizer.model.OriginalImage;
 import pl.edu.agh.to.imageresizer.model.ResizedImage;
@@ -19,6 +23,7 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.time.Duration;
+import java.util.Optional;
 
 @Service
 public class ImageService {
@@ -27,14 +32,16 @@ public class ImageService {
     private static final int PAGE_SIZE = 10;
     private final OriginalImageRepository originalImageRepository;
     private final ResizedImageRepository resizedImageRepository;
+    private final DirectoryRepository directoryRepository;
     private final ImageResizer imageResizer;
     private final Logger logger = LoggerFactory.getLogger(ImageController.class);
 
 
-    public ImageService(OriginalImageRepository originalImageRepository, ResizedImageRepository resizedImageRepository, ImageResizer imageResizer) {
+    public ImageService(OriginalImageRepository originalImageRepository, ResizedImageRepository resizedImageRepository, ImageResizer imageResizer, DirectoryRepository directoryRepository) {
         this.originalImageRepository = originalImageRepository;
         this.resizedImageRepository = resizedImageRepository;
         this.imageResizer = imageResizer;
+        this.directoryRepository = directoryRepository;
     }
 
     @PostConstruct
@@ -114,6 +121,22 @@ public class ImageService {
 
     }
 
+    public Flux<ResizedImage> getResizedImagesForSessionKeyAndDirectoryKey(String sessionKey, String directoryKey, ImageSize imageSize) {
+        return Flux.just(sessionKey)
+                .flatMap(key ->
+                        Flux.merge(
+                                resizedImageRepository.findResizedImagesBySessionKeyAndDirectoryKeyAndWidthAndHeight(key,
+                                        directoryKey, imageSize.getWidth(), imageSize.getHeight()),
+                                resizedImageRepository.findResizedImagesBySessionKeyAndDirectoryKeyAndWidthAndHeight(key,
+                                        ERROR, ERROR_WIDTH_AND_HEIGHT, ERROR_WIDTH_AND_HEIGHT)));
+    }
+
+    public Flux<ResizedImage> getAllResizedImagesForDirectoryKey(String directoryKey, ImageSize imageSize) {
+        return Flux.concat(
+                resizedImageRepository.findResizedImagesByDirectoryKeyAndWidthAndHeight(directoryKey, imageSize.getWidth(), imageSize.getHeight()),
+                resizedImageRepository.findResizedImagesByDirectoryKeyAndWidthAndHeight(ERROR, ERROR_WIDTH_AND_HEIGHT, ERROR_WIDTH_AND_HEIGHT)
+        );
+    }
 
     public Mono<OriginalImage> getOriginalImage(String key) {
         return resizedImageRepository.findResizedImageByImageKey(key)
@@ -122,29 +145,32 @@ public class ImageService {
                 .delayElement(Duration.ofMillis(500));
     }
 
-    public Mono<Boolean> resizeAndSaveOriginalImage(ImageDto imageDto, String sessionKey) {
+    public Mono<Boolean> resizeAndSaveOriginalImage(ImageDto imageDto, String sessionKey, String directoryKey) {
         return getImageDimensions(imageDto.base64())
-                .flatMap(dimensions -> saveOriginalImage(imageDto, dimensions, sessionKey))
-                .flatMap(savedOriginalImage -> resizeImage(imageDto, sessionKey, savedOriginalImage)
+                .flatMap(dimensions -> saveOriginalImage(imageDto, dimensions, sessionKey, directoryKey))
+                .flatMap(savedOriginalImage -> resizeImage(imageDto, sessionKey, savedOriginalImage, directoryKey)
                         .all(result -> result))
                 .onErrorResume(e -> saveErrorOriginalImage(imageDto, sessionKey)
                         .flatMap(savedImage -> saveErrorResizedImage(imageDto, sessionKey, savedImage))
                         .then(Mono.just(false)));
     }
 
-    private Mono<OriginalImage> saveOriginalImage(ImageDto imageDto, Pair<Integer, Integer> dimensions, String sessionKey) {
+    private Mono<OriginalImage> saveOriginalImage(ImageDto imageDto, Pair<Integer, Integer> dimensions, String sessionKey, String directoryKey) {
         OriginalImage originalImage = new OriginalImage(imageDto.name(),
                 imageDto.base64(),
                 sessionKey,
                 imageDto.imageKey(),
+                directoryKey,
                 dimensions.getFirst(),
                 dimensions.getSecond());
+
 
         return originalImageRepository.save(originalImage)
                 .onErrorResume(e -> {
                     OriginalImage errorImage = new OriginalImage(imageDto.name(), ERROR,
                             sessionKey,
                             imageDto.imageKey(),
+                            ERROR,
                             ERROR_WIDTH_AND_HEIGHT, ERROR_WIDTH_AND_HEIGHT);
                     return originalImageRepository.save(errorImage);
                 });
@@ -157,12 +183,12 @@ public class ImageService {
                 savedOriginalImage.getBase64(),
                 savedOriginalImage.getWidth(), savedOriginalImage.getHeight()
         );
-        return saveResizedImage(imageResizer.resize(imageDto, savedOriginalImage.getSessionKey(), Flux.just(imageSize)),
+        return saveResizedImage(imageResizer.resize(imageDto, savedOriginalImage.getSessionKey(), Flux.just(imageSize), savedOriginalImage.getDirectoryKey()),
                 savedOriginalImage, imageDto, savedOriginalImage.getSessionKey());
     }
 
-    private Flux<Boolean> resizeImage(ImageDto imageDto, String sessionKey, OriginalImage savedOriginalImage) {
-        return saveResizedImage(imageResizer.resize(imageDto, sessionKey), savedOriginalImage, imageDto, sessionKey);
+    private Flux<Boolean> resizeImage(ImageDto imageDto, String sessionKey, OriginalImage savedOriginalImage, String directoryKey) {
+        return saveResizedImage(imageResizer.resize(imageDto, sessionKey, directoryKey), savedOriginalImage, imageDto, sessionKey);
     }
 
     private Flux<Boolean> saveResizedImage(Flux<ResizedImage> resizedImages, OriginalImage savedOriginalImage, ImageDto imageDto, String sessionKey) {
@@ -195,6 +221,7 @@ public class ImageService {
                 imageDto.name(),
                 ERROR,
                 sessionKey,
+                ERROR,
                 ERROR_WIDTH_AND_HEIGHT,
                 ERROR_WIDTH_AND_HEIGHT
         );
@@ -209,10 +236,66 @@ public class ImageService {
                 ERROR,
                 sessionKey,
                 imageDto.imageKey(),
+                ERROR,
                 ERROR_WIDTH_AND_HEIGHT,
                 ERROR_WIDTH_AND_HEIGHT
         );
         return originalImageRepository.save(originalImage);
     }
 
+    public Flux<Directory> getDirectoriesByParentKey(String directoryKey) {
+        Flux<Directory> directories = directoryRepository.findDirectoriesByParentKey(directoryKey);
+        logger.info("DRDRirectories: {}", directories);
+        return directories;
+    }
+
+    public Mono<Directory> getParentDirectory(String directoryKey) {
+        return directoryRepository.findByDirectoryKey(directoryKey);
+    }
+
+
+    public Mono<Directory> createDirectory(DirectoryDto directory, String sessionKey) {
+        logger.info("CCCreating directory: {}", directory);
+        logger.info("Creating directory: {}", directory.name());
+        logger.info("Session key: {}", sessionKey);
+        logger.info("Parent key: {}", directory.parentKey());
+        logger.info("Image count: {}", directory.imageCount());
+        logger.info("Directory key: {}", directory.directoryKey());
+        Directory newDirectory = new Directory(
+                directory.name(),
+                directory.directoryKey(),
+                directory.parentKey(),
+                sessionKey,
+                directory.imageCount(),
+                directory.subDirectoriesCount()
+        );
+
+        return directoryRepository.save(newDirectory)
+                .onErrorResume(e -> {
+                    logger.info("Error creating directory: {}", e.getMessage());
+                    Directory errorDirectory = new Directory(
+                            directory.name(),
+                            ERROR,
+                            ERROR,
+                            sessionKey,
+                            ERROR_WIDTH_AND_HEIGHT,
+                            ERROR_WIDTH_AND_HEIGHT);
+                    return directoryRepository.save(errorDirectory);
+                });
+    }
+
+    public Flux<Directory> getFirstDirectories() {
+        return directoryRepository.findDirectoriesByParentKey("");
+    }
+
+    public Flux<Directory> getFirstDirectoriesBySessionKey(String sessionKey) {
+        return directoryRepository.findDirectoriesByParentKeyAndSessionKey("", sessionKey);
+    }
+
+    public Flux<ResizedImage> getResizedImageByDirectoryKeyAndSize(String directoryKey, ImageSize imageSize) {
+        return Flux.concat(
+                resizedImageRepository.findResizedImagesByDirectoryKeyAndWidthAndHeight(directoryKey, imageSize.getWidth(), imageSize.getHeight()),
+                resizedImageRepository.findResizedImagesByDirectoryKeyAndWidthAndHeight(ERROR, ERROR_WIDTH_AND_HEIGHT, ERROR_WIDTH_AND_HEIGHT)
+        );
+    }
 }

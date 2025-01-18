@@ -18,14 +18,14 @@ services:
     networks:
       - app-network
 
-  frontend:
-    build:
-      context: ./image-resizer-front
-    container_name: image-resizer-frontend
-    ports:
-      - "3000:80"
-    networks:
-      - app-network
+  # frontend:
+  #   build:
+  #     context: ./image-resizer-front
+  #   container_name: image-resizer-frontend
+  #   ports:
+  #     - "3000:80"
+  #   networks:
+  #     - app-network
   # and this
   db:
     image: postgres:15
