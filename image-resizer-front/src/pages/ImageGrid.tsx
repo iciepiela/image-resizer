@@ -29,6 +29,7 @@ const ImageGrid: React.FC = () => {
   const [images, setImages] = useState<Image[]>([]);
   const [subDirectories, setSubDirectories] = useState<Directory[]>([]);
   const [path, setPath]=useState<string>("/");
+  const [page, setPage]=useState<number>(0);
   const [mainDirectory, setMainDirectory] = useState<Directory>({
     name: null,
     directories: [],
@@ -49,6 +50,7 @@ const ImageGrid: React.FC = () => {
 
   const COMPLETE_REQUEST = "COMPLETE_REQUEST";
   const ERROR = "ERROR";
+  const PAGE_SIZE=1;
 
   useEffect(() => {
     if (dirKey) {
@@ -56,7 +58,10 @@ const ImageGrid: React.FC = () => {
       loadDirectories(sessionOnly, dirKey, imageSize);
       loadPhotos(sessionOnly, dirKey, imageSize);
     }
-  }, [dirKey]);
+  }, [dirKey, page]);
+  useEffect(()=>{
+    setPage(0);
+  },[dirKey])
 
   useEffect(() => {
     if (window.performance.navigation.type === 1 && !sessionStorage.getItem('refreshed')) {
@@ -84,7 +89,7 @@ const ImageGrid: React.FC = () => {
 
   const loadImageByImageKey = (size: String, imageKey: string): Observable<void> => {
     if (imageKey === null) return EMPTY;
-    const url = `http://localhost:8080/images/resized/by-image-key?imageKey=${imageKey}&sizeString=${size}`;
+    const url = `http://localhost:8080/images/resized/by-image-key?imageKey=${imageKey}&sizeString=${size}&page=${page}`;
     const eventSource = new EventSource(url);
     const imageSet = new Set<string>();
 
@@ -295,12 +300,12 @@ const ImageGrid: React.FC = () => {
     console.log("Loading photos...");
 
     const url = sessionOnly
-      ? `http://localhost:8080/images/resized/by-directory?dirKey=${dirKey.dirKey}&sizeString=${size}`
-      : `http://localhost:8080/images/resized/all?sizeString=${size}`;
+      ? `http://localhost:8080/images/resized/by-directory?dirKey=${dirKey.dirKey}&sizeString=${size}&page=${page}`
+      : `http://localhost:8080/images/resized/all?sizeString=${size}&page=${page}`;
 
     const eventSource = new EventSource(url);
     const imageSet = new Set<string>();
-    const imageCount = dirKey.imageCount;
+    const imageCount = Math.min(dirKey.imageCount, PAGE_SIZE);
     console.log(dirKey);
 
     images.forEach((image) => {
@@ -811,6 +816,7 @@ const ImageGrid: React.FC = () => {
               )}
         </div>
       )}
+      <Button onClick={()=>setPage((prev)=>prev+1)}>Load more</Button>
     </div>
   );
 };

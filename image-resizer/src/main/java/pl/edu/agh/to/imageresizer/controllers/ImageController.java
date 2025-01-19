@@ -50,22 +50,23 @@ public class ImageController {
                 .map(this::getImageDtoResponseEntity);
     }
 
-    @GetMapping(value = "/resized/by-session", params = {"sessionKey", "sizeString"}, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<ResponseEntity<ImageDto>> getImagesBySessionKey(@RequestParam String sessionKey, @RequestParam String sizeString) {
-        return imageService.getResizedImagesForSessionKey(sessionKey, ImageSize.valueOf(sizeString.toUpperCase()))
+    @GetMapping(value = "/resized/by-session", params = {"sessionKey", "sizeString", "page"}, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ResponseEntity<ImageDto>> getImagesBySessionKey(@RequestParam String sessionKey, @RequestParam String sizeString, @RequestParam int page) {
+        return imageService.getResizedImagesForSessionKey(sessionKey, ImageSize.valueOf(sizeString.toUpperCase()),page)
                 .map(this::convertToImageDto)
                 .doOnNext(image -> logger.info(image.toString()))
                 .concatWith(Flux.just(new ImageDto(COMPLETE_REQUEST, COMPLETE_REQUEST, COMPLETE_REQUEST, 0, 0)))
                 .map(this::getImageDtoResponseEntity);
     }
 
-    @GetMapping(value = "/resized/by-directory", params = {"dirKey", "sizeString"}, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<ResponseEntity<ImageDto>> getImagesByDirKey(@RequestParam String dirKey, @RequestParam String sizeString) {
-        return imageService.getResizedImagesByDirKey(dirKey, ImageSize.valueOf(sizeString.toUpperCase()))
+    @GetMapping(value = "/resized/by-directory", params = {"dirKey", "sizeString", "page"}, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ResponseEntity<ImageDto>> getImagesByDirKey(@RequestParam String dirKey, @RequestParam String sizeString, @RequestParam int page) {
+        return imageService.getResizedImagesByDirKey(dirKey, ImageSize.valueOf(sizeString.toUpperCase()),page)
                 .map(this::convertToImageDto)
                 .doOnNext(image -> logger.info(image.toString()))
                 .concatWith(Flux.just(new ImageDto(COMPLETE_REQUEST, COMPLETE_REQUEST, COMPLETE_REQUEST, 0, 0)))
-                .map(this::getImageDtoResponseEntity);
+                .map(this::getImageDtoResponseEntity)
+                .doOnNext(response -> logger.info("ResponseEntity: " + response));
     }
 
     @GetMapping(value = "/parent", params = {"dirKey"}, produces = MediaType.APPLICATION_JSON_VALUE)
@@ -81,6 +82,13 @@ public class ImageController {
                 .map(element -> ResponseEntity.ok().body(element));
     }
 
+    @GetMapping(value = "/directories/by-parent", params = {"dirKey", "page"}, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ResponseEntity<DirectoryMetadata>> getDirectoriesByParent(@RequestParam String dirKey, @RequestParam int page) {
+        return imageService.getDirectories(dirKey, page)
+                .concatWith(Flux.just(new DirectoryMetadata(COMPLETE_REQUEST, COMPLETE_REQUEST, 0, 0)))
+                .doOnNext(image -> logger.info(image.toString()))
+                .map(element -> ResponseEntity.ok().body(element));
+    }
     @GetMapping(value = "/directories/by-parent", params = {"dirKey"}, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ResponseEntity<DirectoryMetadata>> getDirectoriesByParent(@RequestParam String dirKey) {
         return imageService.getDirectories(dirKey)
@@ -104,10 +112,10 @@ public class ImageController {
     }
 
     @GetMapping(value = "/resized/all", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<ResponseEntity<ImageDto>> getAllImages(@RequestParam String sizeString) {
+    public Flux<ResponseEntity<ImageDto>> getAllImages(@RequestParam String sizeString, @RequestParam int page) {
         ImageSize size = ImageSize.valueOf(sizeString.toUpperCase());
         logger.info("Getting all images in size: {}", size);
-        return imageService.getAllResizedImages(size)
+        return imageService.getAllResizedImages(size, page)
                 .map(this::convertToImageDto)
                 .doOnNext(image -> logger.info(image.toString()))
                 .concatWith(Flux.just(new ImageDto(COMPLETE_REQUEST, COMPLETE_REQUEST, COMPLETE_REQUEST, 0, 0))
@@ -115,9 +123,9 @@ public class ImageController {
                 .map(this::getImageDtoResponseEntity);
     }
 
-    @GetMapping(value = "/resized/by-image-key", params = {"imageKey", "sizeString"}, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<ResponseEntity<ImageDto>> getImageByImageKey(@RequestParam String imageKey, @RequestParam String sizeString) {
-        return imageService.getResizedImagesByImageKey(imageKey, ImageSize.valueOf(sizeString.toUpperCase()))
+    @GetMapping(value = "/resized/by-image-key", params = {"imageKey", "sizeString", "page"}, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ResponseEntity<ImageDto>> getImageByImageKey(@RequestParam String imageKey, @RequestParam String sizeString, @RequestParam int page) {
+        return imageService.getResizedImagesByImageKey(imageKey, ImageSize.valueOf(sizeString.toUpperCase()),page)
                 .map(this::convertToImageDto)
                 .doOnNext(image -> logger.info(image.toString()))
                 .concatWith(Flux.just(new ImageDto(COMPLETE_REQUEST, COMPLETE_REQUEST, COMPLETE_REQUEST, 0, 0))

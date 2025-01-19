@@ -22,9 +22,18 @@ public interface DirectoryMetadataRepository extends ReactiveCrudRepository<Dire
                     "from directories d " +
                     "where d.parent_directory_id=(select dp.directory_id " +
                     "from directories dp " +
+                    "where dp.directory_key=:parentDirectoryKey)"+
+                    "limit :limit offset :offset"
+    )
+   Flux<DirectoryMetadata> findAllByParentDirectoryKey(String parentDirectoryKey, int limit, long offset);
+    @Query(
+            "SELECT * " +
+                    "from directories d " +
+                    "where d.parent_directory_id=(select dp.directory_id " +
+                    "from directories dp " +
                     "where dp.directory_key=:parentDirectoryKey)"
     )
-   Flux<DirectoryMetadata> findAllByParentDirectoryKey(String parentDirectoryKey);
+    Flux<DirectoryMetadata> findAllByParentDirectoryKey(String parentDirectoryKey);
     @Query(
             "SELECT * " +
                     "from directories d " +

@@ -102,22 +102,24 @@ public class ImageService {
                 });
     }
 
-    public Flux<ResizedImage> getAllResizedImages(ImageSize imageSize) {
+    public Flux<ResizedImage> getAllResizedImages(ImageSize imageSize, int page) {
+        Pageable pageable = PageRequest.of(page, PAGE_SIZE);
         return Flux.concat(
-                resizedImageRepository.findResizedImagesByWidthAndHeight(imageSize.getWidth(), imageSize.getHeight()),
-                resizedImageRepository.findResizedImagesByWidthAndHeight(ERROR_WIDTH_AND_HEIGHT, ERROR_WIDTH_AND_HEIGHT)
+                resizedImageRepository.findResizedImagesByWidthAndHeight(imageSize.getWidth(), imageSize.getHeight(), pageable),
+                resizedImageRepository.findResizedImagesByWidthAndHeight(ERROR_WIDTH_AND_HEIGHT, ERROR_WIDTH_AND_HEIGHT, pageable)
         );
 
     }
 
-    public Flux<ResizedImage> getResizedImagesForSessionKey(String sessionKey, ImageSize imageSize) {
+    public Flux<ResizedImage> getResizedImagesForSessionKey(String sessionKey, ImageSize imageSize, int page) {
+        Pageable pageable = PageRequest.of(page, PAGE_SIZE);
         return Flux.just(sessionKey)
                 .flatMap(key ->
                         Flux.merge(
                                 resizedImageRepository.findResizedImagesBySessionKeyAndWidthAndHeight(key,
-                                        imageSize.getWidth(), imageSize.getHeight()),
+                                        imageSize.getWidth(), imageSize.getHeight(), pageable),
                                 resizedImageRepository.findResizedImagesBySessionKeyAndWidthAndHeight(key,
-                                        ERROR_WIDTH_AND_HEIGHT, ERROR_WIDTH_AND_HEIGHT)));
+                                        ERROR_WIDTH_AND_HEIGHT, ERROR_WIDTH_AND_HEIGHT, pageable)));
 
     }
 
@@ -128,6 +130,12 @@ public class ImageService {
 
     public Mono<DirectoryMetadata> getRoot() {
         return directoryMetadataRepository.findByDirKey("root");
+    }
+
+    public Flux<DirectoryMetadata> getDirectories(String dirKey, int page) {
+        Pageable pageable = PageRequest.of(page, PAGE_SIZE);
+        return Flux.just(dirKey)
+                .flatMap(key -> directoryMetadataRepository.findAllByParentDirectoryKey(dirKey, pageable.getPageSize(), pageable.getOffset()));
     }
 
     public Flux<DirectoryMetadata> getDirectories(String dirKey) {
@@ -175,25 +183,27 @@ public class ImageService {
                 });
     }
 
-    public Flux<ResizedImage> getResizedImagesByDirKey(String dirKey, ImageSize imageSize) {
+    public Flux<ResizedImage> getResizedImagesByDirKey(String dirKey, ImageSize imageSize, int page) {
+        Pageable pageable = PageRequest.of(page, PAGE_SIZE);
         return Flux.just(dirKey)
                 .flatMap(key ->
                         Flux.merge(
                                 resizedImageRepository.findResizedImagesByDir(key,
-                                        imageSize.getWidth(), imageSize.getHeight()),
+                                        imageSize.getWidth(), imageSize.getHeight(), pageable.getPageSize(), pageable.getOffset()),
                                 resizedImageRepository.findResizedImagesByDir(key,
-                                        ERROR_WIDTH_AND_HEIGHT, ERROR_WIDTH_AND_HEIGHT)));
+                                        ERROR_WIDTH_AND_HEIGHT, ERROR_WIDTH_AND_HEIGHT, pageable.getPageSize(), pageable.getOffset())));
 
     }
 
-    public Flux<ResizedImage> getResizedImagesByImageKey(String imageKey, ImageSize imageSize) {
+    public Flux<ResizedImage> getResizedImagesByImageKey(String imageKey, ImageSize imageSize, int page) {
+        Pageable pageable = PageRequest.of(page, PAGE_SIZE);
         return Flux.just(imageKey)
                 .flatMap(key ->
                         Flux.merge(
                                 resizedImageRepository
-                                        .findResizedImagesByImageKeyAndWidthAndHeight(key, imageSize.getWidth(), imageSize.getHeight()),
+                                        .findResizedImagesByImageKeyAndWidthAndHeight(key, imageSize.getWidth(), imageSize.getHeight(), pageable),
                                 resizedImageRepository
-                                        .findResizedImagesByImageKeyAndWidthAndHeight(key, ERROR_WIDTH_AND_HEIGHT, ERROR_WIDTH_AND_HEIGHT)
+                                        .findResizedImagesByImageKeyAndWidthAndHeight(key, ERROR_WIDTH_AND_HEIGHT, ERROR_WIDTH_AND_HEIGHT, pageable)
                         )
                 );
 
