@@ -135,6 +135,46 @@ public class ImageService {
                 .flatMap(key -> directoryMetadataRepository.findAllByParentDirectoryKey(dirKey));
     }
 
+    public Mono<Void> deleteDirectory(String dirKey) {
+        if (dirKey.equals("root")) {
+            return Mono.error(new RuntimeException("Cannot delete root directory"));
+        }
+        return directoryRepository.findByDirectoryKey(dirKey)
+                .flatMap(directory -> {
+
+                    Long directoryId = directory.getParentDirectoryId(); // Get the directory this image belongs to
+                    if (directoryId != null) {
+                        return directoryRepository.findById(directoryId)
+                                .flatMap(parentDirectory -> {
+                                    parentDirectory.setSubDirectoriesCount(parentDirectory.getSubDirectoriesCount() - 1);
+                                    return directoryRepository.save(parentDirectory)
+                                            .then(directoryRepository.delete(directory)) // Delete the image
+                                            .then();
+                                });
+                    } else {
+                        return directoryRepository.delete(directory).then();
+                    }
+                });
+    }
+
+    public Mono<Void> deleteImage(String imageKey) {
+        return originalImageRepository.findByImageKey(imageKey)
+                .flatMap(image -> {
+                    Long directoryId = image.getParentDirectoryId(); // Get the directory this image belongs to
+                    if (directoryId != null) {
+                        return directoryRepository.findById(directoryId)
+                                .flatMap(directory -> {
+                                    directory.setImageCount(directory.getImageCount() - 1);
+                                    return directoryRepository.save(directory)
+                                            .then(originalImageRepository.delete(image)) // Delete the image
+                                            .then();
+                                });
+                    } else {
+                        return originalImageRepository.delete(image).then();
+                    }
+                });
+    }
+
     public Flux<ResizedImage> getResizedImagesByDirKey(String dirKey, ImageSize imageSize) {
         return Flux.just(dirKey)
                 .flatMap(key ->
@@ -190,12 +230,12 @@ public class ImageService {
                                     return directoryRepository.save(parentDirectory);
                                 })
                                 .then(Flux.concat(
-                                                Flux.fromIterable(directoryDto.directories())
-                                                        .flatMap(dir -> saveDirectory(dir, sessionKey, savedDirectory.getDirectoryId())),
-                                                Flux.fromIterable(directoryDto.images())
-                                                        .flatMap(imageDto -> resizeAndSaveOriginalImage(imageDto, sessionKey, savedDirectory.getDirectoryId()))
-                                        )
-                                        .then(Mono.just(true))
+                                                        Flux.fromIterable(directoryDto.directories())
+                                                                .flatMap(dir -> saveDirectory(dir, sessionKey, savedDirectory.getDirectoryId())),
+                                                        Flux.fromIterable(directoryDto.images())
+                                                                .flatMap(imageDto -> resizeAndSaveOriginalImage(imageDto, sessionKey, savedDirectory.getDirectoryId()))
+                                                )
+                                                .then(Mono.just(true))
                                 )
                 );
 
@@ -208,7 +248,12 @@ public class ImageService {
                         .all(result -> result))
                 .onErrorResume(e -> saveErrorOriginalImage(imageDto, sessionKey, parentDirectoryId)
                         .flatMap(savedImage -> saveErrorResizedImage(imageDto, sessionKey, savedImage))
-                        .then(Mono.just(false)));
+                        .then(Mono.just(false)))
+                .flatMap(savedImage -> directoryRepository.findById(parentDirectoryId)
+                        .flatMap(directory -> {
+                            directory.setImageCount(directory.getImageCount() + 1);
+                            return directoryRepository.save(directory);
+                        }).then(Mono.just(true)));
     }
 
     private Mono<OriginalImage> saveOriginalImage(ImageDto imageDto, Pair<Integer, Integer> dimensions, String sessionKey, Long parentDirectoryId) {
@@ -296,5 +341,4 @@ public class ImageService {
         );
         return originalImageRepository.save(originalImage);
     }
-
 }

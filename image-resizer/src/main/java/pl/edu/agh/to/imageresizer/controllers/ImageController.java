@@ -89,6 +89,20 @@ public class ImageController {
                 .map(element -> ResponseEntity.ok().body(element));
     }
 
+    @DeleteMapping(value = "/directories/delete", params = {"dirKey"}, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Mono<ResponseEntity<Void>> deleteDirectory(@RequestParam String dirKey) {
+        return imageService.deleteDirectory(dirKey)
+                .doOnNext(image -> logger.info(image.toString()))
+                .map(element -> ResponseEntity.ok().body(element));
+    }
+
+    @DeleteMapping(value = "/delete", params = {"imageKey"}, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Mono<ResponseEntity<Void>> deleteImage(@RequestParam String imageKey) {
+        return imageService.deleteImage(imageKey)
+                .doOnNext(image -> logger.info(image.toString()))
+                .map(element -> ResponseEntity.ok().body(element));
+    }
+
     @GetMapping(value = "/resized/all", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ResponseEntity<ImageDto>> getAllImages(@RequestParam String sizeString) {
         ImageSize size = ImageSize.valueOf(sizeString.toUpperCase());

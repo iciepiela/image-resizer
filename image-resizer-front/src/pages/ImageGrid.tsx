@@ -560,6 +560,57 @@ const ImageGrid: React.FC = () => {
     setHoveredImageClicked(false);
   };
 
+  const deleteDirectory = async (dirKey: string) => {
+    try {
+      const response = await fetch(`http://localhost:8080/images/directories/delete?dirKey=${dirKey}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+  
+      if (response.ok) {
+        console.log('Directory deleted successfully');
+        setDirKey((prev) => ({
+          dirKey: prev?.dirKey ?? null, 
+          imageCount: prev?.imageCount ?? 0,   
+          name: prev?.name ?? null,
+          dirCount: prev?.dirCount ? prev.dirCount - 1 : 0
+        }));
+      } else {
+        console.error('Failed to delete directory');
+      }
+    } catch (error) {
+      console.error('Error deleting directory:', error);
+    }
+  };
+
+  const deleteImage = async (imgKey: string) => {
+    try {
+      const response = await fetch(`http://localhost:8080/images/delete?imageKey=${imgKey}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+  
+      if (response.ok) {
+        console.log('Image deleted successfully');
+        setDirKey((prev) => ({
+          dirKey: prev?.dirKey ?? null, 
+          imageCount: prev?.imageCount ? prev?.imageCount -1 : 0,   
+          name: prev?.name ?? null,
+          dirCount: prev?.dirCount ?? 0
+        }));
+      } else {
+        console.error('Failed to delete image');
+      }
+    } catch (error) {
+      console.error('Error deleting image:', error);
+    }
+  };
+  
+
   return (
     <div className="main_container">
       <div className="top-bar">
@@ -643,6 +694,14 @@ const ImageGrid: React.FC = () => {
           <div
             key={directory.dirKey}
             className="directory-grid-item"
+          >
+
+
+            <FolderIcon style={{
+              color: "#ffb74d",
+              width: `${imageSize === "small" ? 100 : imageSize === "medium" ? 200 : 300}px`,
+              height: `${imageSize === "small" ? 100 : imageSize === "medium" ? 200 : 300}px`,
+            }} 
             onClick={() => {
               setSessionOnly(true);
               // setMainDirectory(directory);
@@ -653,16 +712,9 @@ const ImageGrid: React.FC = () => {
                 return `${prev}/${directory.name}`;
                 else return `${prev}${directory.name}`;});
                 
-            }}
-          >
-
-
-            <FolderIcon style={{
-              color: "#ffb74d",
-              width: `${imageSize === "small" ? 100 : imageSize === "medium" ? 200 : 300}px`,
-              height: `${imageSize === "small" ? 100 : imageSize === "medium" ? 200 : 300}px`,
-            }} />
+            }}/>
             <span>{directory.name}</span>
+            <Button onClick={()=>deleteDirectory(directory.dirKey)}>Delete</Button>
 
           </div>
         ))}
@@ -670,7 +722,7 @@ const ImageGrid: React.FC = () => {
           <div
             key={image.imageKey}
             className="image-grid-item"
-            onClick={() => handleMouseEnter(image)}
+            
           >
             {(image.loaded && image.base64.includes(ERROR)) ?
               (
@@ -682,15 +734,18 @@ const ImageGrid: React.FC = () => {
                   }}
                 >
                   <img src="/sad.png"
+                    onClick={() => handleMouseEnter(image)}
+
                     alt="Sad face"
                     style={{
                       width: `${imageSize === "small" ? 40 : imageSize === "medium" ? 130 : 210}px`,
                       height: `${imageSize === "small" ? 40 : imageSize === "medium" ? 130 : 210}px`,
                     }}></img>
                   <p>Image "{image.name}" is damaged</p>
+                  <Button onClick={()=>deleteImage(image.imageKey)}>Delete</Button>
 
                 </div>
-              ) : (image.loaded) ? (
+              ) : (image.loaded) ? (<div className="damaged-image" >
                 <img
                   src={image.base64}
                   alt={`Image ${image.name}`}
@@ -699,7 +754,10 @@ const ImageGrid: React.FC = () => {
                     width: `${image.width}px`,
                     height: `${image.height}px`,
                   }}
+                  onClick={() => handleMouseEnter(image)}
                 />
+                <Button onClick={()=>deleteImage(image.imageKey)}>Delete</Button>
+                </div>
               )
                 : (
                   <div
@@ -711,6 +769,7 @@ const ImageGrid: React.FC = () => {
                   >
                     <div
                       className="loader"
+                      onClick={() => handleMouseEnter(image)}
                       style={{
                         width: `${imageSize === "small" ? 12 : imageSize === "medium" ? 50 : 75}px`,
                         height: `${imageSize === "small" ? 12 : imageSize === "medium" ? 50 : 75}px`,

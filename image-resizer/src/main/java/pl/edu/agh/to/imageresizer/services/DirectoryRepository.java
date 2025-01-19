@@ -6,4 +6,6 @@ import reactor.core.publisher.Mono;
 
 public interface DirectoryRepository extends ReactiveCrudRepository<Directory, Long> {
     Mono<Directory> findByDirectoryKey(String key);
+
+    Mono<Directory> findAllByDirectoryKey(String key);
 }

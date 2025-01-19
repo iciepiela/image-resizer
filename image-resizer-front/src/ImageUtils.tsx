@@ -46,7 +46,7 @@ export const extractZip = async (file: File): Promise<Directory> => {
       }
     });
     await Promise.all(promises);
-    updateDirectoryCounts(root);
+    // updateDirectoryCounts(root);
     return root.directories[0];
   } catch (error) {
     alert("Error extracting ZIP file: " + error.message);
