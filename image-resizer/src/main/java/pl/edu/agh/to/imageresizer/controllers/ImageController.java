@@ -8,8 +8,8 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import pl.edu.agh.to.imageresizer.dto.DirectoryDto;
+import pl.edu.agh.to.imageresizer.dto.DirectoryMetadata;
 import pl.edu.agh.to.imageresizer.dto.ImageDto;
-import pl.edu.agh.to.imageresizer.model.Directory;
 import pl.edu.agh.to.imageresizer.model.ImageSize;
 import pl.edu.agh.to.imageresizer.model.ResizedImage;
 import pl.edu.agh.to.imageresizer.services.ImageService;
@@ -68,10 +68,23 @@ public class ImageController {
                 .map(this::getImageDtoResponseEntity);
     }
 
-    @GetMapping(value = "/parent", params = {"dirKey"}, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Mono<ResponseEntity<String>> getParent(@RequestParam String dirKey) {
+    @GetMapping(value = "/parent", params = {"dirKey"}, produces = MediaType.APPLICATION_JSON_VALUE)
+    public Mono<ResponseEntity<DirectoryMetadata>> getParent(@RequestParam String dirKey) {
         return imageService.getDirectoryParent(dirKey)
-                .map(Directory::getDirectoryKey)
+                .doOnNext(image -> logger.info(image.toString()))
+                .map(element -> ResponseEntity.ok().body(element));
+    }
+    @GetMapping(value = "/root", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Mono<ResponseEntity<DirectoryMetadata>> getRoot() {
+        return imageService.getRoot()
+                .doOnNext(image -> logger.info(image.toString()))
+                .map(element -> ResponseEntity.ok().body(element));
+    }
+
+    @GetMapping(value = "/directories/by-parent", params = {"dirKey"}, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ResponseEntity<DirectoryMetadata>> getDirectoriesByParent(@RequestParam String dirKey) {
+        return imageService.getDirectories(dirKey)
+                .concatWith(Flux.just(new DirectoryMetadata(COMPLETE_REQUEST, COMPLETE_REQUEST, 0, 0)))
                 .doOnNext(image -> logger.info(image.toString()))
                 .map(element -> ResponseEntity.ok().body(element));
     }
@@ -111,10 +124,10 @@ public class ImageController {
     }
 
     @PostMapping(value = "/upload/dir", produces = MediaType.APPLICATION_JSON_VALUE)
-    public Mono<ResponseEntity<String>> uploadDirectory(@RequestBody DirectoryDto directory, HttpSession httpSession) {
+    public Mono<ResponseEntity<String>> uploadDirectory(@RequestBody DirectoryDto directory,@RequestParam String directoryKey, HttpSession httpSession) {
         String sessionKey = httpSession.getId();
         Flux.just(directory)
-                .flatMap(image -> imageService.saveDirectory(directory, sessionKey, null))
+                .flatMap(image -> imageService.saveDirectory(directory, sessionKey, directoryKey ))
                 .doOnError(e -> logger.error("Error during image processing", e))
                 .subscribeOn(Schedulers.boundedElastic())
                 .subscribe();

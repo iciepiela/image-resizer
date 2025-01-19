@@ -4,6 +4,8 @@ create table directories
         primary key,
     name                varchar(255),
     directory_key                varchar(255),
+    image_count INTEGER DEFAULT 0,
+    sub_directories_count INTEGER DEFAULT 0,
     parent_directory_id bigint NULL
         constraint fk_pdirectory
             references directories

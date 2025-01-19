@@ -9,6 +9,7 @@ import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Service;
 import pl.edu.agh.to.imageresizer.controllers.ImageController;
 import pl.edu.agh.to.imageresizer.dto.DirectoryDto;
+import pl.edu.agh.to.imageresizer.dto.DirectoryMetadata;
 import pl.edu.agh.to.imageresizer.dto.ImageDto;
 import pl.edu.agh.to.imageresizer.model.Directory;
 import pl.edu.agh.to.imageresizer.model.ImageSize;
@@ -30,19 +31,35 @@ public class ImageService {
     private final OriginalImageRepository originalImageRepository;
     private final ResizedImageRepository resizedImageRepository;
     private final DirectoryRepository directoryRepository;
+    private final DirectoryMetadataRepository directoryMetadataRepository;
     private final ImageResizer imageResizer;
     private final Logger logger = LoggerFactory.getLogger(ImageController.class);
 
 
-    public ImageService(OriginalImageRepository originalImageRepository, ResizedImageRepository resizedImageRepository, DirectoryRepository directoryRepository, ImageResizer imageResizer) {
+    public ImageService(OriginalImageRepository originalImageRepository, ResizedImageRepository resizedImageRepository, DirectoryRepository directoryRepository, DirectoryMetadataRepository directoryMetadataRepository, ImageResizer imageResizer) {
         this.originalImageRepository = originalImageRepository;
         this.resizedImageRepository = resizedImageRepository;
         this.directoryRepository = directoryRepository;
+        this.directoryMetadataRepository = directoryMetadataRepository;
         this.imageResizer = imageResizer;
     }
 
     @PostConstruct
     public void reprocessAllImages() {
+        directoryRepository.findByDirectoryKey("root")
+                .hasElement()
+                .flatMap(exists -> {
+                    if (exists) {
+                        return Mono.empty();
+                    } else {
+                        Directory rootDirectory = new Directory();
+                        rootDirectory.setDirectoryKey("root");
+                        rootDirectory.setName("root");
+                        rootDirectory.setParentDirectoryId(null);
+                        return directoryRepository.save(rootDirectory).then();
+                    }
+                })
+                .subscribe();
         Flux.just(ImageSize.values())
                 .flatMap(this::processImageSize)
                 .subscribe(
@@ -104,9 +121,18 @@ public class ImageService {
 
     }
 
-    public Mono<Directory> getDirectoryParent(String dirKey) {
+    public Mono<DirectoryMetadata> getDirectoryParent(String dirKey) {
         return Mono.just(dirKey)
-                .flatMap(key-> directoryRepository.findDirectoryParent(dirKey));
+                .flatMap(key -> directoryMetadataRepository.findDirectoryParent(dirKey));
+    }
+
+    public Mono<DirectoryMetadata> getRoot() {
+        return directoryMetadataRepository.findByDirKey("root");
+    }
+
+    public Flux<DirectoryMetadata> getDirectories(String dirKey) {
+        return Flux.just(dirKey)
+                .flatMap(key -> directoryMetadataRepository.findAllByParentDirectoryKey(dirKey));
     }
 
     public Flux<ResizedImage> getResizedImagesByDirKey(String dirKey, ImageSize imageSize) {
@@ -142,23 +168,37 @@ public class ImageService {
                 .delayElement(Duration.ofMillis(500));
     }
 
+    public Mono<Boolean> saveDirectory(DirectoryDto directoryDto, String sessionKey, String directoryKey) {
+        return directoryRepository.findByDirectoryKey(directoryKey)
+                .flatMap(directory -> saveDirectory(directoryDto, sessionKey, directory.getDirectoryId()));
+    }
+
     public Mono<Boolean> saveDirectory(DirectoryDto directoryDto, String sessionKey, Long parentDirectoryId) {
         Directory directory = new Directory(
                 directoryDto.name(),
                 parentDirectoryId,
-                directoryDto.dirKey()
+                directoryDto.dirKey(),
+                directoryDto.subDirectoriesCount(),
+                directoryDto.imageCount()
         );
 
         return directoryRepository.save(directory)
                 .flatMap(savedDirectory ->
-                    Flux.concat(
-                            Flux.fromIterable(directoryDto.directories())
-                            .flatMap(dir -> saveDirectory(dir, sessionKey, savedDirectory.getDirectoryId())),
-                        Flux.fromIterable(directoryDto.images())
-                            .flatMap(imageDto -> resizeAndSaveOriginalImage(imageDto, sessionKey, savedDirectory.getDirectoryId() ))
-                    )
-                            .then(Mono.just(true))
+                        directoryRepository.findById(parentDirectoryId)
+                                .flatMap(parentDirectory -> {
+                                    parentDirectory.setSubDirectoriesCount(parentDirectory.getSubDirectoriesCount() + 1);
+                                    return directoryRepository.save(parentDirectory);
+                                })
+                                .then(Flux.concat(
+                                                Flux.fromIterable(directoryDto.directories())
+                                                        .flatMap(dir -> saveDirectory(dir, sessionKey, savedDirectory.getDirectoryId())),
+                                                Flux.fromIterable(directoryDto.images())
+                                                        .flatMap(imageDto -> resizeAndSaveOriginalImage(imageDto, sessionKey, savedDirectory.getDirectoryId()))
+                                        )
+                                        .then(Mono.just(true))
+                                )
                 );
+
     }
 
     public Mono<Boolean> resizeAndSaveOriginalImage(ImageDto imageDto, String sessionKey, Long parentDirectoryId) {

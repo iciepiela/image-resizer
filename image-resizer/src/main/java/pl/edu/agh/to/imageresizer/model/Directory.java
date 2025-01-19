@@ -16,10 +16,14 @@ public class Directory {
     private String name;
     private Long parentDirectoryId;
     private String directoryKey;
+    private int subDirectoriesCount;
+    private int imageCount;
 
-    public Directory(String name, Long parentDirectoryId, String directoryKey) {
+    public Directory(String name, Long parentDirectoryId, String directoryKey, int subDirectoriesCount, int imageCount) {
         this.name = name;
         this.parentDirectoryId = parentDirectoryId;
         this.directoryKey = directoryKey;
+        this.subDirectoriesCount = subDirectoriesCount;
+        this.imageCount = imageCount;
     }
 }
