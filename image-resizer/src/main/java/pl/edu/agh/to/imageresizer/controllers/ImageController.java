@@ -149,7 +149,7 @@ public class ImageController {
     public Mono<ResponseEntity<String>> uploadDirectory(@RequestBody DirectoryDto directory,@RequestParam String directoryKey, HttpSession httpSession) {
         String sessionKey = httpSession.getId();
         Flux.just(directory)
-                .flatMap(image -> imageService.saveDirectory(directory, sessionKey, directoryKey ))
+                .flatMap(image -> imageService.saveOrUpdateDirectory(directory, sessionKey, directoryKey ))
                 .doOnError(e -> logger.error("Error during image processing", e))
                 .subscribeOn(Schedulers.boundedElastic())
                 .subscribe();

@@ -7,10 +7,10 @@ export type Image = {
   loaded: boolean;
 };
 export type Directory = {
-  name: string | null;
+  name: string;
   directories: Directory[];
   images: Image[];
-  dirKey: string | null;
+  dirKey: string;
   hasParent: boolean;
   imageCount: number;
   subDirectoriesCount: number;
@@ -21,7 +21,7 @@ export const extractZip = async (file: File): Promise<Directory> => {
   const zip = new JSZip();
   try {
     const zipContent = await zip.loadAsync(file);
-    const root: Directory = { name: "", directories: [], images: [], dirKey: "root", 
+    const root: Directory = { name: "root", directories: [], images: [], dirKey: "root", 
       hasParent: false, subDirectoriesCount: 0, imageCount:0 };
     const promises: Promise<void>[] = [];
     zipContent.forEach((relativePath, zipEntry) => {
@@ -47,7 +47,8 @@ export const extractZip = async (file: File): Promise<Directory> => {
     });
     await Promise.all(promises);
     // updateDirectoryCounts(root);
-    return root.directories[0];
+    console.log("root:",root)
+    return root;
   } catch (error) {
     alert("Error extracting ZIP file: " + error.message);
     return {

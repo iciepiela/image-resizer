@@ -17,4 +17,6 @@ public interface OriginalImageRepository extends ReactiveCrudRepository<Original
             "WHERE r.image_id IS NULL")
     Flux<OriginalImage> findOriginalImagesWithoutResizedImageOfSize(int width, int height, Pageable pageable);
     Mono<OriginalImage> findByImageKey(String imageKey);
+
+    Mono<Void> deleteAllByParentDirectoryId(Long parentDirectoryId);
 }

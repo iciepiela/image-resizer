@@ -19,8 +19,8 @@ type Image = {
 
 
 type DirKey = {
-  dirKey: string | null;
-  name: string | null;
+  dirKey: string;
+  name: string;
   imageCount: number;
   dirCount: number;
 };
@@ -30,19 +30,15 @@ const ImageGrid: React.FC = () => {
   const [subDirectories, setSubDirectories] = useState<Directory[]>([]);
   const [path, setPath]=useState<string>("/");
   const [page, setPage]=useState<number>(0);
-  const [mainDirectory, setMainDirectory] = useState<Directory>({
-    name: null,
-    directories: [],
-    images: [],
-    dirKey: null,
-    hasParent: false,
-    imageCount: 0,
-    subDirectoriesCount:0
-  });
   const [hoveredImage, setHoveredImage] = useState<Image | null>(null);
   const [hoveredImageStyle, setHoveredImageStyle] = useState<React.CSSProperties>({});
   const [hoveredImageClicked, setHoveredImageClicked] = useState(false);
-  const [dirKey, setDirKey] = useState<DirKey | undefined>();
+  const [dirKey, setDirKey] = useState<DirKey>({
+    dirKey: "root",
+    name: "root",
+    imageCount: 0,
+    dirCount: 0
+  });
   const [imageSize, setImageSize] = useState<String>("medium");
   const [sessionOnly, setSessionOnly] = useState<boolean>(true);
   const [activeSubscriptions, setActiveSubscriptions] = useState<Map<string, EventSource>>(new Map());
@@ -50,7 +46,7 @@ const ImageGrid: React.FC = () => {
 
   const COMPLETE_REQUEST = "COMPLETE_REQUEST";
   const ERROR = "ERROR";
-  const PAGE_SIZE=1;
+  const PAGE_SIZE=10;
 
   useEffect(() => {
     if (dirKey) {
@@ -95,7 +91,7 @@ const ImageGrid: React.FC = () => {
 
     if (activeSubscriptions.get(imageKey)) {
       const prevEventSource = activeSubscriptions.get(imageKey);
-      console.log(prevEventSource);
+      // console.log(prevEventSource);
       prevEventSource?.close();
       setActiveSubscriptions((prev) => {
         const newMap = new Map(prev);
@@ -159,16 +155,19 @@ const ImageGrid: React.FC = () => {
     });
 
     const parentKey=await response.json();
+    setImages([]);
+    setSubDirectories([]);
 
-    console.log(parentKey);
-    setDirKey({dirKey: parentKey.directoryKey, imageCount: parentKey.imageCount, name: parentKey.name, dirCount: parentKey.subDirectoriesCount});
     setPath((prevPath) => {
       const lastSlashIndex = prevPath.lastIndexOf('/');
       const slice=prevPath.slice(0, lastSlashIndex);
       return lastSlashIndex !== -1 ? (slice!="" ? slice : "/") : prevPath;
     });
-    setImages([]);
-    setSubDirectories([]);
+
+    console.log("Parent Key: ",parentKey);
+    setDirKey({dirKey: parentKey.directoryKey, imageCount: parentKey.imageCount, name: parentKey.name, dirCount: parentKey.subDirectoriesCount});
+
+
   }
 
   const loadPhotosByImageKey = (size: String): void => {
@@ -213,30 +212,31 @@ const ImageGrid: React.FC = () => {
   const loadDirectories = (sessionOnly: boolean, dirKey: DirKey, size: String) => {
     console.log("Loading photos...");
     setSubDirectories([]);
-    console.log(subDirectories);
+    // console.log("Subdirectories: ",subDirectories);
 
     const url =`http://localhost:8080/images/directories/by-parent?dirKey=${dirKey.dirKey}`;
 
     const eventSource = new EventSource(url);
     const dirSet = new Set<string>();
     const dirCount = dirKey.dirCount;
-    console.log(dirKey);
+    console.log("loadDirectories, dirKey",dirKey);
+    console.log("loadDirecories",images)
 
-    images.forEach((image) => {
-      const imageKey = image.imageKey;
-      if (activeSubscriptions.get(imageKey)) {
-        const prevEventSource = activeSubscriptions.get(imageKey);
-        console.log(prevEventSource);
-        prevEventSource?.close();
-        setActiveSubscriptions((prev) => {
-          const newMap = new Map(prev);
-          newMap.delete(imageKey);
+    // images.forEach((image) => {
+    //   const imageKey = image.imageKey;
+    //   if (activeSubscriptions.get(imageKey)) {
+    //     const prevEventSource = activeSubscriptions.get(imageKey);
+    //     console.log(prevEventSource);
+    //     prevEventSource?.close();
+    //     setActiveSubscriptions((prev) => {
+    //       const newMap = new Map(prev);
+    //       newMap.delete(imageKey);
 
-          return newMap;
-        });
-      }
-    }
-    );
+    //       return newMap;
+    //     });
+    //   }
+    // }
+    // );
     dirEventSource?.close();
     setDirEventSource(eventSource);
     
@@ -358,7 +358,7 @@ const ImageGrid: React.FC = () => {
             height: imageData.height,
             loaded: true,
           };
-          console.log(newImage);
+          // console.log(newImage);
 
           setImages((prevImages) => {
             if (size !== imageSize) return prevImages;
@@ -392,7 +392,8 @@ const ImageGrid: React.FC = () => {
           });
 
           imageSet.add(newImage.imageKey);
-          if (imageSet.size >= imageCount && sessionOnly) {
+          console.log("imageCount: ",imageCount)
+          if (imageSet.size >= imageCount) {
             console.log(dirKey.dirKey + ": ended", imageSet);
             eventSource.close();
           }
@@ -479,24 +480,17 @@ const ImageGrid: React.FC = () => {
     if (file && file.name.endsWith(".zip")) {
       extractZip(file).then((loadedFile) => {
         console.log("imgs:", loadedFile);
-        setMainDirectory((prevDirectory) => ({
-          ...prevDirectory,
-          directories: [...(prevDirectory?.directories || []), ...loadedFile.directories],
-          name: prevDirectory?.name || loadedFile.name,
-          images: [...(prevDirectory?.images || []), ...loadedFile.images],
-          dirKey: prevDirectory?.dirKey || loadedFile.dirKey
-        }));
-        // setMainDirectory(loadedFile);
+
         uploadPhotos(loadedFile);
 
         setDirKey((prev) => ({
-          dirKey: prev?.dirKey ?? null, 
-          imageCount: prev?.imageCount ?? 0,   
-          name: prev?.name ?? null,
-          dirCount: prev?.dirCount ? prev.dirCount + 1 : 1
+          ...prev,
+          imageCount: prev.imageCount + loadedFile.images.length,
+          dirCount: prev.dirCount + loadedFile.directories.length,
         }));
-        loadDirectories(sessionOnly, dirKey, imageSize);
-        loadPhotos(sessionOnly, dirKey, imageSize);
+
+        // loadDirectories(sessionOnly, dirKey, imageSize);
+        // loadPhotos(sessionOnly, dirKey, imageSize);
       });
     } else {
       alert("Please upload a valid ZIP file.");
@@ -576,11 +570,10 @@ const ImageGrid: React.FC = () => {
   
       if (response.ok) {
         console.log('Directory deleted successfully');
+
         setDirKey((prev) => ({
-          dirKey: prev?.dirKey ?? null, 
-          imageCount: prev?.imageCount ?? 0,   
-          name: prev?.name ?? null,
-          dirCount: prev?.dirCount ? prev.dirCount - 1 : 0
+          ...prev,
+          dirCount: prev.imageCount - 1,
         }));
       } else {
         console.error('Failed to delete directory');
@@ -601,11 +594,12 @@ const ImageGrid: React.FC = () => {
   
       if (response.ok) {
         console.log('Image deleted successfully');
+        setImages((prevImages) => prevImages.filter(image => image.imageKey !== imgKey));
+
+
         setDirKey((prev) => ({
-          dirKey: prev?.dirKey ?? null, 
-          imageCount: prev?.imageCount ? prev?.imageCount -1 : 0,   
-          name: prev?.name ?? null,
-          dirCount: prev?.dirCount ?? 0
+          ...prev,
+          imageCount: prev.imageCount - 1,
         }));
       } else {
         console.error('Failed to delete image');
