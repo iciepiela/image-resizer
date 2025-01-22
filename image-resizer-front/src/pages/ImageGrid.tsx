@@ -43,6 +43,30 @@ const ImageGrid: React.FC = () => {
   const [sessionOnly, setSessionOnly] = useState<boolean>(true);
   const [activeSubscriptions, setActiveSubscriptions] = useState<Map<string, EventSource>>(new Map());
   const [dirEventSource, setDirEventSource] = useState<EventSource | null>(null); 
+  const [isBottom, setIsBottom] = useState(false);
+
+  const handleScroll = () => {
+    const { scrollHeight, scrollTop, clientHeight } = document.documentElement;
+    if (scrollTop + clientHeight >= scrollHeight - 5) { // Add a small buffer for precision
+      setIsBottom(true);
+    } else {
+      setIsBottom(false);
+    }
+  };
+
+  useEffect(() => {
+    window.addEventListener("scroll", handleScroll);
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isBottom) {
+      console.log("You have reached the bottom!");
+      setPage((prev)=>prev+1);  
+    }
+  }, [isBottom]);
 
   const COMPLETE_REQUEST = "COMPLETE_REQUEST";
   const ERROR = "ERROR";
@@ -676,7 +700,7 @@ const ImageGrid: React.FC = () => {
       </div>
       <div className="image-grid">
         <h1>Photos - click to make them bigger!!!</h1>
-        <h2>{path}</h2>
+        <h2 style={{width: '100%',textAlign:'center'}}>Path: {path}</h2>
         {(dirKey?.dirKey!=null &&dirKey?.dirKey!="root") ? (
           <div  className="directory-grid-item"
           onClick={loadParentDirectory}>
@@ -810,7 +834,7 @@ const ImageGrid: React.FC = () => {
               )}
         </div>
       )}
-      <Button onClick={()=>setPage((prev)=>prev+1)}>Load more</Button>
+      {/* <Button onClick={()=>setPage((prev)=>prev+1)}>Load more</Button> */}
     </div>
   );
 };
