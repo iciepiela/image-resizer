@@ -22,7 +22,6 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.time.Duration;
-import java.util.Objects;
 
 @Service
 public class ImageService {
@@ -143,6 +142,7 @@ public class ImageService {
         return Flux.just(dirKey)
                 .flatMap(key -> directoryMetadataRepository.findAllByParentDirectoryKey(dirKey));
     }
+
     public Mono<Void> deleteDirectory(String dirKey) {
         if (dirKey.equals("root")) {
             return Mono.error(new RuntimeException("Cannot delete root directory"));
@@ -186,7 +186,14 @@ public class ImageService {
     }
 
     private Mono<Void> deleteImageRecord(OriginalImage image) {
-        return originalImageRepository.delete(image).then();
+        Long directoryId = image.getParentDirectoryId();
+        if (directoryId != null) {
+            return updateParentImageCount(directoryId, -1)
+                    .then(originalImageRepository.delete(image))
+                    .then();
+        } else {
+            return originalImageRepository.delete(image).then();
+        }
     }
 
     public Flux<ResizedImage> getResizedImagesByDirKey(String dirKey, ImageSize imageSize, int page) {
@@ -223,12 +230,16 @@ public class ImageService {
                 .flatMap(image -> originalImageRepository.findById(image.getOriginalImageId()))
                 .delayElement(Duration.ofMillis(500));
     }
-    
 
-    public Mono<Boolean> saveOrUpdateDirectory(DirectoryDto directoryDto, String sessionKey, String directoryKey) {
+
+    public Mono<Void> saveOrUpdateDirectory(DirectoryDto directoryDto, String sessionKey, String directoryKey) {
         return directoryRepository.findByDirectoryKey(directoryKey)
                 .flatMap(existingDirectory -> updateDirectory(existingDirectory, directoryDto, sessionKey))
-                .switchIfEmpty(createAndSaveDirectory(directoryDto, sessionKey, null));
+                .switchIfEmpty(createAndSaveDirectory(directoryDto, sessionKey, null))
+                .then(directoryRepository.findByDirectoryKey(directoryKey)
+                        .flatMap(parentDirectory ->
+                                updateParentSubDirectoryCount(parentDirectory.getDirectoryId(), 1)
+                        ));
     }
 
     private Mono<Boolean> updateDirectory(Directory existingDirectory, DirectoryDto directoryDto, String sessionKey) {
@@ -237,6 +248,10 @@ public class ImageService {
         existingDirectory.setImageCount(directoryDto.imageCount() + existingDirectory.getImageCount());
 
         return directoryRepository.save(existingDirectory)
+                .then(directoryRepository.findById(existingDirectory.getDirectoryId())
+                        .flatMap(parentDirectory ->
+                                updateParentSubDirectoryCount(parentDirectory.getDirectoryId(), 1)
+                        ))
                 .then(saveChildrenDirectoriesAndImages(directoryDto, sessionKey, existingDirectory.getDirectoryId()));
     }
 
@@ -262,7 +277,6 @@ public class ImageService {
                 )
                 .then(Mono.just(true));
     }
-
 
 
     public Mono<Boolean> resizeAndSaveOriginalImage(ImageDto imageDto, String sessionKey, Long parentDirectoryId) {

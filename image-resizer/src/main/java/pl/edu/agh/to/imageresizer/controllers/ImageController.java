@@ -145,7 +145,7 @@ public class ImageController {
         return Mono.just(ResponseEntity.status(HttpStatus.OK).body(sessionKey));
     }
 
-    @PostMapping(value = "/upload/dir", produces = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(value = "/upload/dir", params = {"directoryKey"}, produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<ResponseEntity<String>> uploadDirectory(@RequestBody DirectoryDto directory,@RequestParam String directoryKey, HttpSession httpSession) {
         String sessionKey = httpSession.getId();
         Flux.just(directory)

@@ -174,6 +174,10 @@ const ImageGrid: React.FC = () => {
     });
 
     const parentKey=await response.json();
+    activeSubscriptions.forEach((value, key)=>{
+      value.close();
+    })
+    setActiveSubscriptions(new Map());
     setImages([]);
     setSubDirectories([]);
 
