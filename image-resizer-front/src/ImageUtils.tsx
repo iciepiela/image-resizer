@@ -16,13 +16,20 @@ export type Directory = {
   subDirectoriesCount: number;
 };
 
-export const extractZip = async (file: File): Promise<Directory> => {
+export type DirKey = {
+  dirKey: string;
+  name: string;
+  imageCount: number;
+  dirCount: number;
+};
+
+export const extractZip = async (file: File,dirKey: DirKey): Promise<Directory> => {
   console.log("unzipping");
   const zip = new JSZip();
   try {
     const zipContent = await zip.loadAsync(file);
-    const root: Directory = { name: "root", directories: [], images: [], dirKey: "root", 
-      hasParent: false, subDirectoriesCount: 0, imageCount:0 };
+    const root: Directory = { name: dirKey.name, directories: [], images: [], dirKey: dirKey.dirKey, 
+      hasParent: dirKey.dirKey!="root", subDirectoriesCount: 0, imageCount:0 };
     const promises: Promise<void>[] = [];
     zipContent.forEach((relativePath, zipEntry) => {
       const pathParts = relativePath.split("/").filter((part) => part); // Split path and remove empty parts

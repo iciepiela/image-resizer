@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { fromEvent, from, mergeMap, tap, finalize, catchError, Observable, EMPTY } from "rxjs";
 import { map } from "rxjs/operators";
-import { extractZip, Directory } from "../ImageUtils.tsx";
+import { extractZip, Directory, DirKey } from "../ImageUtils.tsx";
 import Button from "@mui/material/Button";
 import { IconButton } from "@mui/material";
 // import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -18,12 +18,7 @@ type Image = {
 };
 
 
-type DirKey = {
-  dirKey: string;
-  name: string;
-  imageCount: number;
-  dirCount: number;
-};
+
 
 const ImageGrid: React.FC = () => {
   const [images, setImages] = useState<Image[]>([]);
@@ -291,7 +286,7 @@ const ImageGrid: React.FC = () => {
             subDirectoriesCount: dirData.subDirectoriesCount,
             directories: [], 
             images: [],
-            hasParent: false
+            hasParent: dirData.directoryKey != "root"
           };
 
           setSubDirectories((prev) => [...prev,newDirectory]);
@@ -502,10 +497,14 @@ const ImageGrid: React.FC = () => {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file && file.name.endsWith(".zip")) {
-      extractZip(file).then((loadedFile) => {
+      extractZip(file,dirKey).then((loadedFile) => {
         console.log("imgs:", loadedFile);
 
         uploadPhotos(loadedFile);
+
+        loadedFile.images.forEach((image) => {
+          setImages((prev) => [...prev,image])
+        })
 
         setDirKey((prev) => ({
           ...prev,
@@ -728,7 +727,7 @@ const ImageGrid: React.FC = () => {
             onClick={() => {
               setSessionOnly(true);
               // setMainDirectory(directory);
-              setImages(directory.images);
+              setImages([]);
               setSubDirectories([]);
               setDirKey({ dirKey: directory.dirKey, imageCount: directory.imageCount, name: directory.name, dirCount: directory.subDirectoriesCount });
               setPath((prev) => {if(prev!="/")
